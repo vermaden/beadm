@@ -39,7 +39,6 @@ PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
 __create_mount_point() { # /* 1=DEV */
   MNT="${MNTPREFIX}/$( basename ${1} )"
   mkdir -p ${MNT}
-  chown 1000 ${MNT}
 }
 
 __check_already_mounted() { # /* 1=MNT */
