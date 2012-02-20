@@ -165,13 +165,10 @@ case ${2} in
       | while read DEV PROVIDER MNT
         do
           TARGET=$( mount | grep -E "^${PROVIDER} " | awk '{print $3}' )
-          [ -z ${TARGET} ] && {
-            __state_remove ${MNT} ${STATE}
-            continue
-          }
+          __state_remove ${MNT} ${STATE}
+          [ -z ${TARGET} ] && continue
           umount -f ${TARGET} &
           unset TARGET
-          __state_remove ${MNT} ${STATE}
           __log "${DEV}:umount"
         done
     __state_unlock
