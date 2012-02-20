@@ -33,12 +33,15 @@ PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
 : ${CODEPAGE="cp437"}                 # /* US/Canada */
 : ${DATEFMT="%Y-%m-%d %H:%M:%S"}      # /* 2012-02-20 07:49:09 */
 : ${USERUMOUNT="NO"}                  # /* when YES add suid bit to umount(8) */
+: ${POPUP="NO"}                       # /* display file manager window */
+: ${USER="0"}                         # /* which user to use for popup */
+: ${FM="0"}                           # /* which file manager to use */
 
 [ "${USERUMOUNT}" = "YES" ] && chmod u+s /sbin/umount # /* WHEEL group member */
 
 __create_mount_point() { # /* 1=DEV */
-  MNT="${MNTPREFIX}/$( basename ${1} )"
   mkdir -p ${MNT}
+  [ "${USER}" != 0 ] && chown ${USER} ${MNT}
 }
 
 __check_already_mounted() { # /* 1=MNT */
@@ -48,30 +51,12 @@ __check_already_mounted() { # /* 1=MNT */
   }
 }
 
-__state_lock() {
-  TIMEOUT=60
-  COUNT=0
-  while [ -f ${STATE}.lock ]
-  do
-    sleep 0.5
-    [ ${COUNT} -gt ${TIMEOUT} ] && break
-    COUNT=$(( ${COUNT} + 1 ))
-  done
-  :> ${STATE}.lock
-}
-
-__state_unlock() {
-  rm ${STATE}.lock
-}
-
 __state_add() { # /* 1=DEV 2=PROVIDER 3=MNT */
-  __state_lock
-  grep -E "${3}" ${STATE} 1> /dev/null 2> /dev/null && {
+  grep -E "${3}$" ${STATE} 1> /dev/null 2> /dev/null && {
     __log "${1}:duplicated '${STATE}'"
     exit 0
   }
   echo "${1} ${2} ${3}" >> ${STATE}
-  __state_unlock
 }
 
 __state_remove() { # /* 1=MNT 2=STATE */
@@ -84,68 +69,57 @@ __log() { # /* @=MESSAGE */
 }
 
 DEV=/dev/${1}
-ADD=0
 
 case ${2} in
   (attach)
+    ADD=0
+    MNT="${MNTPREFIX}/$( basename ${1} )"
+    __check_already_mounted ${MNT}
+    __create_mount_point ${DEV}
     case $( file -b -L -s ${DEV} | sed -E 's/label:\ \".*\"//g' ) in
       (*NTFS*)
         dd < ${DEV} count=1 2> /dev/null | strings | head -1 | grep -q "NTFS" && {
-            __create_mount_point ${DEV}
-            which ntfsfix 1> /dev/null 2> /dev/null && {
-              ntfsfix ${DEV} # /* sysutils/ntfsprogs */
-            }
-            __check_already_mounted ${MNT}
-            which ntfs-3g 1> /dev/null 2> /dev/null && {
-              ntfs-3g -o noatime ${DEV} ${MNT} && ADD=1 # /* sysutils/fusefs-ntfs */
-            } || {
-              mount_ntfs -o noatime ${DEV} ${MNT} && ADD=1
-            }
-            __log "${DEV}:mount (ntfs)"
+          which ntfsfix 1> /dev/null 2> /dev/null && {
+            ntfsfix ${DEV} # /* sysutils/ntfsprogs */
+          }
+          which ntfs-3g 1> /dev/null 2> /dev/null && {
+            ntfs-3g -o noatime ${DEV} ${MNT} && ADD=1 # /* sysutils/fusefs-ntfs */
+          } || {
+            mount_ntfs -o noatime ${DEV} ${MNT} && ADD=1
+          }
+          __log "${DEV}:mount (ntfs)"
         }
         ;;
       (*FAT*)
         dd < ${DEV} count=1 2> /dev/null | strings | grep -q "FAT32" && {
-            __create_mount_point ${DEV}
-            fsck_msdosfs -y ${DEV}
-            __check_already_mounted ${MNT}
-            mount_msdosfs -o large -L ${ENCODING} -D ${CODEPAGE} ${DEV} ${MNT} && ADD=1
-            __log "${DEV}:mount (fat)"
+          fsck_msdosfs -y ${DEV}
+          mount_msdosfs -o large -L ${ENCODING} -D ${CODEPAGE} ${DEV} ${MNT} && ADD=1
+          __log "${DEV}:mount (fat)"
         }
         ;;
       (*ext2*)
-        __create_mount_point ${DEV}
         fsck.ext2 -y ${DEV}
         mount -t ext2fs -o noatime ${DEV} ${MNT} && ADD=1
-        __check_already_mounted ${MNT}
         __log "${DEV}:mount (ext2)"
         ;;
       (*ext3*)
-        __create_mount_point ${DEV}
         fsck.ext3 -y ${DEV}
-        __check_already_mounted ${MNT}
         mount -t ext2fs -o noatime ${DEV} ${MNT} && ADD=1
         __log "${DEV}:mount (ext3)"
         ;;
       (*ext4*)
-        __create_mount_point ${DEV}
         fsck.ext4 -y ${DEV}
-        __check_already_mounted ${MNT}
         ext4fuse ${DEV} ${MNT} && ADD=1 # /* sysutils/fusefs-ext4fuse */
         __log "${DEV}:mount (ext4)"
         ;;
       (*Unix\ Fast\ File*)
-        __create_mount_point ${DEV}
         fsck_ufs -y ${DEV}
-        __check_already_mounted ${MNT}
         mount -o noatime ${DEV} ${MNT} && ADD=1
         __log "${DEV}:mount (ufs)"
         ;;
       (*)
         case $( dd < ${DEV} count=1 2> /dev/null | strings | head -1 ) in
           (EXFAT)
-            __create_mount_point ${DEV}
-            __check_already_mounted ${MNT}
             mount.exfat -o noatime ${DEV} ${MNT} && ADD=1 # /* sysutils/fusefs-exfat */
             __log "${DEV}:mount (ufs)"
             ;;
@@ -155,27 +129,27 @@ case ${2} in
     [ ${ADD} -eq 1 ] && {
       PROVIDER=$( mount | grep -m 1 " ${MNT} " | awk '{printf $1}' )
       __state_add ${DEV} ${PROVIDER} ${MNT}
+      [ "${POPUP}" = YES ] && [ "${USER}" != 0 ] && [ "${FM}" != 0 ] \
+        && su - ${USER} -c "env DISPLAY=:0 ${FM} ${MNT} &"
       ADD=0
     }
     ;;
 
   (detach)
-    __state_lock
+    M=$( mount )
     grep -E "${PREFIX}/${1}$" ${STATE} \
       | while read DEV PROVIDER MNT
         do
-          TARGET=$( mount | grep -E "^${PROVIDER} " | awk '{print $3}' )
+          TARGET=$( echo "$M" | grep -E "^${PROVIDER} " | awk '{print $3}' )
           __state_remove ${MNT} ${STATE}
           [ -z ${TARGET} ] && continue
           umount -f ${TARGET} &
           unset TARGET
           __log "${DEV}:umount"
         done
-    __state_unlock
     __log "${DEV}:detach"
-    find ${MNTPREFIX} -type d -empty -delete
     ;;
 
 esac
 
-
+find ${MNTPREFIX} -type d -empty -delete

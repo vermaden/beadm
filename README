@@ -31,3 +31,42 @@ Now plugin Your USB thumb drive ;)
 
 Have Fun ;)
 vermaden
+
+----------
+
+Latest changes ...
+
+I removed the state_lock and stat_unlock mechanisms as they appeared to be not
+needed, I have shufled with 3 drives all the time and the 'integrity' has not
+been lost, at it was a lot faster, because the lock always had to wait for the
+'slowest' drive (in term of initializing the device, like USB hard drive).
+
+I simplified the 'attach' section a lot, now each filesystem contains only
+check/fsck (if possible), mount and log info.
+
+I also simplified and improved the 'detach' section a little.
+
+I added an option to automatically launch the set-up in config file manager.
+
+These are options that I currently successfully use for NAUTILUS file manager,
+You need to set-up all three of them to make it work.
+
+| POPUP=YES
+| FM="nautilus --browser --no-desktop"
+| USER=vermaden
+
+My whole config looks like that now:
+
+| USERUMOUNT=YES
+| POPUP=YES
+| FM="nautilus --browser --no-desktop"
+| USER=vermaden
+| ENCODING=pl_PL.ISO8859-2
+| CODEPAGE=cp852
+
+All latest updates are available at GITHUB repository:
+https://github.com/vermaden/automount
+
+Regards,
+vermaden
+
