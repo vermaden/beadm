@@ -45,7 +45,7 @@ __create_mount_point() { # /* 1=DEV */
 __check_already_mounted() { # /* 1=MNT */
   mount | grep " ${1} " 1> /dev/null 2> /dev/null && {
     __log "${DEV}:already mounted (ntfs)"
-    continue
+    exit 0
   }
 }
 
@@ -69,7 +69,7 @@ __state_add() { # /* 1=DEV 2=PROVIDER 3=MNT */
   __state_lock
   grep -E "${3}" ${STATE} 1> /dev/null 2> /dev/null && {
     __log "${1}:duplicated '${STATE}'"
-    return 1
+    exit 0
   }
   echo "${1} ${2} ${3}" >> ${STATE}
   __state_unlock
