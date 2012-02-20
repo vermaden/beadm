@@ -162,7 +162,7 @@ case ${2} in
 
   (detach)
     __state_lock
-    grep -E "${1}$" ${STATE} \
+    grep -E "${PREFIX}/${1}$" ${STATE} \
       | while read DEV PROVIDER MNT
         do
           TARGET=$( mount | grep -E "^${PROVIDER} " | awk '{print $3}' )
