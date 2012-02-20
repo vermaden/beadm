@@ -74,7 +74,7 @@ __state_add() { # /* 1=DEV 2=PROVIDER 3=MNT */
   __state_unlock
 }
 
-__state_remove() { # /* 1=MNT 2=STATE 3=LINE */
+__state_remove() { # /* 1=MNT 2=STATE */
   BSMNT=$( echo ${1} | sed 's/\//\\\//g' ) # /* backslash the slashes ;) */
   sed -i '' "/${BSMNT}\$/d" ${2}
 }
@@ -166,12 +166,12 @@ case ${2} in
         do
           TARGET=$( mount | grep -E "^${PROVIDER} " | awk '{print $3}' )
           [ -z ${TARGET} ] && {
-            __state_remove ${MNT} ${STATE} ${LINE}
+            __state_remove ${MNT} ${STATE}
             continue
           }
           umount -f ${TARGET} &
           unset TARGET
-          __state_remove ${MNT} ${STATE} ${LINE}
+          __state_remove ${MNT} ${STATE}
           __log "${DEV}:umount"
         done
     __state_unlock
