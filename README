@@ -1,0 +1,24 @@
+AUTOMOUNT is a devd(8) based flexible yet very simple automounter for FreeBSD.
+
+Currently it supports these file systems:
+ -- NTFS requires sysutils/fusefs-ntfs for R/W
+ -- FAT/FAT32
+ -- exFAT requires sysutils/fusefs-exfat
+ -- EXT2
+ -- EXT3
+ -- EXT4 requires sysutils/fusefs-ext4fuse
+ -- UFS
+
+It keeps state of the mounted devices at /var/run/automount.state and logs
+all activities to /var/log/automount.log file.
+
+The place for the script is at /usr/local/sbin/automount.sh executable.
+
+The only additional configuration it requires is to add these lines as
+/usr/local/etc/devd/automount_devd.conf file, which would allow it to work.
+
+Remember to restart /etc/rc.d/devd daemon after adding
+/usr/local/etc/devd/automount_devd.conf file.
+
+Have Fun ;)
+vermaden

@@ -1,0 +1,1 @@
+/home/vermaden/scripts/automount.sh
