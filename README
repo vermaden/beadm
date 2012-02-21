@@ -32,7 +32,7 @@ Now plugin Your USB thumb drive ;)
 Have Fun ;)
 vermaden
 
-----------
+-------------------------------------------------------------------------------
 
 Latest changes ...
 
@@ -70,3 +70,16 @@ https://github.com/vermaden/automount
 Regards,
 vermaden
 
+-------------------------------------------------------------------------------
+
+Latest changes ...
+
+FAT/NTFS detection improvements.
+The 'chown' now uses sets user's group.
+MSDOS filesystem is now mounted with -m 644 -M 755 options by default.
+Removed POPUP=YES option, just use USER + FM for simplicity.
+NTFS filesystem, when mounted by mount_ntfs(8) uses -u and -g options by default.
+Even more simplified 'detach' section.
+
+Regards,
+vermaden
