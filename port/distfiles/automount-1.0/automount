@@ -176,7 +176,7 @@ case ${2} in
         __log "${DEV}:mount (ext4)"
         ;;
       (*Unix\ Fast\ File*)
-        fsck_ufs -y ${DEV}
+        fsck_ufs -C -y ${DEV}
         mount -o noatime ${DEV} ${MNT} && ADD=1
         __log "${DEV}:mount (ufs)"
         ;;
