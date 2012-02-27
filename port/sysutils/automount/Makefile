@@ -6,7 +6,7 @@
 #
 
 PORTNAME=     automount
-PORTVERSION=  1.0
+PORTVERSION=  1.2
 LICENSE=      BSD
 CATEGORIES=   sysutils
 MASTER_SITES= https://github.com/vermaden/automount/
