@@ -92,3 +92,82 @@ Added PORT ;)
 
 Regards,
 vermaden
+
+-------------------------------------------------------------------------------
+
+Added the --help page, removed some bugs, added options to configure features.
+
+% automount --help
+AUTOMOUNT is a devd(8) based automounter for FreeBSD.
+
+It supports following file systems:
+UFS/FAT/exFAT/NTFS/EXT2/EXT3/EXT4
+
+It needs these ports to mount NTFS/exFAT/EXT4 respectively:
+ o sysutils/fusefs-ntfs
+ o sysutils/fusefs-exfat
+ o sysutils/fusefs-ext4fuse
+
+By default it mounts/unmounts all removable media but
+it is possible to set some additional options at the
+/usr/local/etc/automount.conf config file.
+
+Below is a list of possible options with description.
+
+MNTPREFIX (set to /media by default)
+  With this options You can alter the default root
+  for mounting the removable media, for example to
+  the /mnt directory.
+
+  example: MNTPREFIX="/media"
+
+ENCODING (set to en_US.ISO8859-1 by default)
+  Only used with FAT32 mounts, specifies which
+  encoding to use at the mount.
+
+  example: ENCODING="pl_PL.ISO8859-2"
+
+CODEPAGE (set to cp437 by default)
+  Only used with FAT32 mounts, specifies which
+  code page to use at the mount.
+
+  example: CODEPAGE="cp852"
+
+USER (unset by default)
+  If set to some username, the mount command will
+  chown(1) the mount directory with the user and
+  its primary user group. If used with FM option
+  allows to launch the specified file manager after
+  a successful mount.
+
+  example: USER="vermaden"
+
+FM (unset by default)
+  If set to file manager command, the mount will
+  launch the specified command after successful
+  mount. Works only if USER parameter is also set.
+
+  example: FM="nautilus --browser --no-desktop"
+
+USERUMOUNT (set to NO by default)
+  When set to YES it will 'chmod +s /sbin/umount'
+  which would allow an USER to unmount the file
+  system with their selected file manager.
+
+  example: USERUMOUNT="YES"
+
+ATIME (set to YES by default)
+  When set to NO it will mount filesystems with
+  noatime options when possible.
+
+  example: ATIME="NO"
+
+REMOVEDIRS (set to NO by default)
+  When set to YES it will remove empty directories
+  under the used  after device detach.
+
+  example: REMOVEDIRS="YES"
+
+Regards,
+vermaden
+
