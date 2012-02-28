@@ -1,6 +1,6 @@
-# New ports collection makefile for:	automount
-# Date created:        21 Febryaru 2012
-# Whom:                vermaden
+# New ports collection makefile for: automount
+# Date created:                      28 February 2012
+# Whom:                              vermaden
 #
 # $FreeBSD$
 #
