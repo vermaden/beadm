@@ -1,0 +1,79 @@
+# This is a shell archive.  Save it in a file, remove anything before
+# this line, and then unpack it by entering "sh file".  Note, it may
+# create directories; files and directories will be owned by you and
+# have default permissions.
+#
+# This archive contains:
+#
+#	automount
+#	automount/Makefile
+#	automount/distinfo
+#	automount/pkg-install
+#	automount/pkg-descr
+#
+echo c - automount
+mkdir -p automount > /dev/null 2>&1
+echo x - automount/Makefile
+sed 's/^X//' >automount/Makefile << 'a684d750ccdf9f4d6ffa6a1936b8d432'
+X# New ports collection makefile for:	automount
+X# Date created:        21 Febryaru 2012
+X# Whom:                vermaden
+X#
+X# $FreeBSD$
+X#
+X
+XPORTNAME=     automount
+XPORTVERSION=  1.2
+XCATEGORIES=   sysutils
+XMASTER_SITES= https://github.com/vermaden/automount/
+X
+XMAINTAINER=   vermaden@interia.pl
+XCOMMENT=      FreeBSD's devd(8) based automount sollution
+X
+XLICENSE=      BSD
+X
+XPLIST_FILES=  sbin/automount etc/devd/automount_devd.conf etc/automount.conf.sample
+X
+XNO_BUILD=      yes
+X
+Xdo-install:
+X	${INSTALL_SCRIPT} ${WRKSRC}/automount             ${PREFIX}/sbin
+X	${INSTALL_DATA}   ${WRKSRC}/automount_devd.conf   ${PREFIX}/etc/devd/automount_devd.conf
+X	${INSTALL_DATA}   ${WRKSRC}/automount.conf.sample ${PREFIX}/etc/automount.conf.sample
+X	${SH} ${PKGINSTALL} ${PKGNAME} POST-INSTALL
+X
+X.include <bsd.port.mk>
+a684d750ccdf9f4d6ffa6a1936b8d432
+echo x - automount/distinfo
+sed 's/^X//' >automount/distinfo << 'f9168fc754e2bffcb12d5eb7f25848ec'
+XSHA256 (automount-1.2.tar.gz) = 5cbb556a861e781312705e1696a495ec688f8581e00e9563d111670699024d5a
+XSIZE (automount-1.2.tar.gz) = 3448
+f9168fc754e2bffcb12d5eb7f25848ec
+echo x - automount/pkg-install
+sed 's/^X//' >automount/pkg-install << '251e9ad33f5651c05228156a36207e92'
+X#!/bin/sh
+X
+Xcase ${2} in
+X  (POST-INSTALL)
+X		/etc/rc.d/devd restart
+X		echo
+X		echo
+X		echo "Check /usr/local/sbin/automount --help for available options."
+X		echo
+X		echo
+X		;;
+X	(PRE-INSTALL) : ;;
+Xesac
+X
+251e9ad33f5651c05228156a36207e92
+echo x - automount/pkg-descr
+sed 's/^X//' >automount/pkg-descr << 'beeed37ba9f50e251d50bf9bd7dcb079'
+Xautomount is a devd(8) based automounter for FreeBSD.
+X
+XIt supports most popular file systems:
+XNTFS/MSDOS/exFAT/EXT2/EXT3/EXT4/UFS
+X
+XWWW: https://github.com/vermaden/automount/
+beeed37ba9f50e251d50bf9bd7dcb079
+exit
+
