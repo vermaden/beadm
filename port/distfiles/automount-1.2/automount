@@ -96,6 +96,7 @@ REMOVEDIRS (set to NO by default)
 
   example: REMOVEDIRS="YES"
 
+
 EOF
   exit 0
 }

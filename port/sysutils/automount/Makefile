@@ -7,12 +7,13 @@
 
 PORTNAME=     automount
 PORTVERSION=  1.2
-LICENSE=      BSD
 CATEGORIES=   sysutils
 MASTER_SITES= https://github.com/vermaden/automount/
 
 MAINTAINER=   vermaden@interia.pl
-COMMENT=      devd(8) based automount sollution
+COMMENT=      FreeBSD's devd(8) based automount sollution
+
+LICENSE=      BSD
 
 PLIST_FILES=  sbin/automount etc/devd/automount_devd.conf etc/automount.conf.sample
 
