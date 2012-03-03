@@ -15,9 +15,9 @@ echo c - automount
 mkdir -p automount > /dev/null 2>&1
 echo x - automount/Makefile
 sed 's/^X//' >automount/Makefile << 'a684d750ccdf9f4d6ffa6a1936b8d432'
-X# New ports collection makefile for:	automount
-X# Date created:        21 Febryaru 2012
-X# Whom:                vermaden
+X# New ports collection makefile for: automount
+X# Date created:                      28 February 2012
+X# Whom:                              vermaden
 X#
 X# $FreeBSD$
 X#
@@ -25,7 +25,7 @@ X
 XPORTNAME=     automount
 XPORTVERSION=  1.2
 XCATEGORIES=   sysutils
-XMASTER_SITES= https://github.com/vermaden/automount/
+XMASTER_SITES= https://github.com/vermaden/automount/port/distfiles/
 X
 XMAINTAINER=   vermaden@interia.pl
 XCOMMENT=      FreeBSD's devd(8) based automount sollution
@@ -55,14 +55,16 @@ X#!/bin/sh
 X
 Xcase ${2} in
 X  (POST-INSTALL)
-X		/etc/rc.d/devd restart
-X		echo
-X		echo
-X		echo "Check /usr/local/sbin/automount --help for available options."
-X		echo
-X		echo
-X		;;
-X	(PRE-INSTALL) : ;;
+X    /etc/rc.d/devd restart
+X    echo
+X    echo
+X    echo "Check /usr/local/sbin/automount --help for available options."
+X    echo
+X    echo
+X    ;;
+X  (PRE-INSTALL)
+X    :
+X    ;;
 Xesac
 X
 251e9ad33f5651c05228156a36207e92
