@@ -23,7 +23,7 @@ X# $FreeBSD$
 X#
 X
 XPORTNAME=     automount
-XPORTVERSION=  1.2
+XPORTVERSION=  1.3.1
 XCATEGORIES=   sysutils
 XMASTER_SITES= https://github.com/vermaden/automount/port/distfiles/
 X
@@ -46,8 +46,8 @@ X.include <bsd.port.mk>
 a684d750ccdf9f4d6ffa6a1936b8d432
 echo x - automount/distinfo
 sed 's/^X//' >automount/distinfo << 'f9168fc754e2bffcb12d5eb7f25848ec'
-XSHA256 (automount-1.2.tar.gz) = 5cbb556a861e781312705e1696a495ec688f8581e00e9563d111670699024d5a
-XSIZE (automount-1.2.tar.gz) = 3448
+XSHA256 (automount-1.3.1.tar.gz) = f007e31bf3b3f35750909197ecc9c7fd7f2159cc82127eaeca1c145accc16220
+XSIZE (automount-1.3.1.tar.gz) = 3530
 f9168fc754e2bffcb12d5eb7f25848ec
 echo x - automount/pkg-install
 sed 's/^X//' >automount/pkg-install << '251e9ad33f5651c05228156a36207e92'
