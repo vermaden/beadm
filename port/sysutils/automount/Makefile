@@ -6,7 +6,7 @@
 #
 
 PORTNAME=     automount
-PORTVERSION=  1.3
+PORTVERSION=  1.3.1
 CATEGORIES=   sysutils
 MASTER_SITES= https://github.com/vermaden/automount/port/distfiles/
 

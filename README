@@ -1,101 +1,27 @@
-AUTOMOUNT is a devd(8) based flexible yet very simple automounter for FreeBSD.
+VERSION 1.3.1
 
-Currently it supports these file systems:
- -- NTFS requires sysutils/fusefs-ntfs for R/W
- -- FAT/FAT32
- -- exFAT requires sysutils/fusefs-exfat
- -- EXT2
- -- EXT3
- -- EXT4 requires sysutils/fusefs-ext4fuse
- -- UFS
-
-It keeps state of the mounted devices at /var/run/automount.state and logs
-all activities to /var/log/automount.log file.
-
-The place for the script is at /usr/local/sbin/automount.sh executable.
-
-The only additional configuration it requires is to add these lines as
-/usr/local/etc/devd/automount_devd.conf file, which would allow it to work.
-
-Remember to restart /etc/rc.d/devd daemon after adding
-/usr/local/etc/devd/automount_devd.conf file.
-
-INSTALL:
-
-# cp automount.sh        /usr/local/sbin/automount.sh
-# cp automount.conf      /usr/local/etc/automount.conf
-# cp automount_devd.conf /usr/local/etc/devd/automount_devd.conf
-# /etc/rc.d/devd restart
-
-Now plugin Your USB thumb drive ;)
-
-Have Fun ;)
-vermaden
+Fixed the 'detach' section (s/PREFIX/MNTPREFIX/g).
+Fixed removing directories of manually (properly) unmounted filesystems.
 
 -------------------------------------------------------------------------------
 
-Latest changes ...
+VERSION 1.3
 
-I removed the state_lock and stat_unlock mechanisms as they appeared to be not
-needed, I have shufled with 3 drives all the time and the 'integrity' has not
-been lost, at it was a lot faster, because the lock always had to wait for the
-'slowest' drive (in term of initializing the device, like USB hard drive).
-
-I simplified the 'attach' section a lot, now each filesystem contains only
-check/fsck (if possible), mount and log info.
-
-I also simplified and improved the 'detach' section a little.
-
-I added an option to automatically launch the set-up in config file manager.
-
-These are options that I currently successfully use for NAUTILUS file manager,
-You need to set-up all three of them to make it work.
-
-| POPUP=YES
-| FM="nautilus --browser --no-desktop"
-| USER=vermaden
-
-My whole config looks like that now:
-
-| USERUMOUNT=YES
-| POPUP=YES
-| FM="nautilus --browser --no-desktop"
-| USER=vermaden
-| ENCODING=pl_PL.ISO8859-2
-| CODEPAGE=cp852
-
-All latest updates are available at GITHUB repository:
-https://github.com/vermaden/automount
-
-Regards,
-vermaden
+Fixed inproper exFAT detection, now mounts fine.
+Fixed creating mount dirs for attached devices no matter if needed or not.
+Revised 'detach' section, now removes only directory that is unmounted.
+Simplified FAT/NTFS sections, removed additional checks as they break
+  some MP3 players automount.
 
 -------------------------------------------------------------------------------
 
-Latest changes ...
+VERSION 1.2.1
 
-FAT/NTFS detection improvements.
-The 'chown' now uses sets user's group.
-MSDOS filesystem is now mounted with -m 644 -M 755 options by default.
-Removed POPUP=YES option, just use USER + FM for simplicity.
-NTFS filesystem, when mounted by mount_ntfs(8) uses -u and -g options by default.
-Even more simplified 'detach' section.
+Added the --help page.
+Removed some small bugs.
+Added more options to configure features.
 
-Regards,
-vermaden
 
--------------------------------------------------------------------------------
-
-Latest changes ...
-
-Added PORT ;)
-
-Regards,
-vermaden
-
--------------------------------------------------------------------------------
-
-Added the --help page, removed some bugs, added options to configure features.
 
 % automount --help
 AUTOMOUNT is a devd(8) based automounter for FreeBSD.
@@ -168,17 +94,88 @@ REMOVEDIRS (set to NO by default)
 
   example: REMOVEDIRS="YES"
 
-Regards,
-vermaden
-
 -------------------------------------------------------------------------------
 
-Fixed bug about inproper exFAT detection, now mounts fine.
-Fixed bug about creating mount dirs for all attached devices no matter if needed or not.
-Revised 'detach' section, now removes only directory that is unmounted (if enabled of course).
-Simplified FAT/NTFS sections, removed additional check as it break some MP3 players default filesystems automount.
+VERSION 1.2
 
-Regards,
+FAT/NTFS detection improvements.
+The 'chown' now uses sets user's group.
+MSDOS filesystem is now mounted with -m 644 -M 755 options by default.
+Removed POPUP=YES option, just use USER + FM for simplicity.
+NTFS filesystem, when mounted by mount_ntfs(8) uses -u and -g options.
+Even more simplified 'detach' section.
+
+------------------------------------------------------------------------------
+
+VERSION 1.1
+
+I removed the state_lock and stat_unlock mechanisms as they appeared to be
+not needed, I have shufled with 3 drives all the time and the 'integrity'
+has not been lost, at it was a lot faster, because the lock always had to
+wait for the 'slowest' drive (in term of initializing the device, like USB
+hard drive).
+
+I simplified the 'attach' section a lot, now each filesystem contains only
+check/fsck (if possible), mount and log info.
+
+I also simplified and improved the 'detach' section a little.
+
+I added an option to automatically launch the set-up in config file manager.
+
+These are options that I currently successfully use for NAUTILUS file
+manager. You need to set-up all three of them to make it work.
+
+| POPUP=YES
+| FM="nautilus --browser --no-desktop"
+| USER=vermaden
+
+My whole config looks like that now:
+
+| USERUMOUNT=YES
+| POPUP=YES
+| FM="nautilus --browser --no-desktop"
+| USER=vermaden
+| ENCODING=pl_PL.ISO8859-2
+| CODEPAGE=cp852
+
+All latest updates are available at GITHUB repository:
+https://github.com/vermaden/automount
+
+------------------------------------------------------------------------------
+
+VERSION 1.0
+
+AUTOMOUNT is devd(8) based flexible yet very simple automounter for FreeBSD.
+
+Currently it supports these file systems:
+ -- NTFS requires sysutils/fusefs-ntfs for R/W
+ -- FAT/FAT32
+ -- exFAT requires sysutils/fusefs-exfat
+ -- EXT2
+ -- EXT3
+ -- EXT4 requires sysutils/fusefs-ext4fuse
+ -- UFS
+
+It keeps state of the mounted devices at /var/run/automount.state and logs
+all activities to /var/log/automount.log file.
+
+The place for the script is at /usr/local/sbin/automount.sh executable.
+
+The only additional configuration it requires is to add these lines as
+/usr/local/etc/devd/automount_devd.conf file, which would allow it to work.
+
+Remember to restart /etc/rc.d/devd daemon after adding
+/usr/local/etc/devd/automount_devd.conf file.
+
+INSTALL:
+
+# cp automount.sh        /usr/local/sbin/automount.sh
+# cp automount.conf      /usr/local/etc/automount.conf
+# cp automount_devd.conf /usr/local/etc/devd/automount_devd.conf
+# /etc/rc.d/devd restart
+
+Now plugin Your USB thumb drive ;)
+
+Have Fun ;)
 vermaden
-
 
