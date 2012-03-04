@@ -171,3 +171,14 @@ REMOVEDIRS (set to NO by default)
 Regards,
 vermaden
 
+-------------------------------------------------------------------------------
+
+Fixed bug about inproper exFAT detection, now mounts fine.
+Fixed bug about creating mount dirs for all attached devices no matter if needed or not.
+Revised 'detach' section, now removes only directory that is unmounted (if enabled of course).
+Simplified FAT/NTFS sections, removed additional check as it break some MP3 players default filesystems automount.
+
+Regards,
+vermaden
+
+
