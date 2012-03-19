@@ -1,3 +1,19 @@
+automount is a devd(8) based automounter for FreeBSD.
+
+It supports most popular file systems:
+NTFS/MSDOS/exFAT/EXT2/EXT3/EXT4/UFS
+
+INSTALL:
+
+# cp automount.sh        /usr/local/sbin/automount.sh
+# cp automount.conf      /usr/local/etc/automount.conf
+# cp automount_devd.conf /usr/local/etc/devd/automount_devd.conf
+# /etc/rc.d/devd restart
+
+Now plugin Your USB thumb drive ;)
+
+-------------------------------------------------------------------------------
+
 VERSION 1.3.1
 
 Fixed the 'detach' section (s/PREFIX/MNTPREFIX/g).
@@ -166,15 +182,6 @@ The only additional configuration it requires is to add these lines as
 
 Remember to restart /etc/rc.d/devd daemon after adding
 /usr/local/etc/devd/automount_devd.conf file.
-
-INSTALL:
-
-# cp automount.sh        /usr/local/sbin/automount.sh
-# cp automount.conf      /usr/local/etc/automount.conf
-# cp automount_devd.conf /usr/local/etc/devd/automount_devd.conf
-# /etc/rc.d/devd restart
-
-Now plugin Your USB thumb drive ;)
 
 Have Fun ;)
 vermaden
