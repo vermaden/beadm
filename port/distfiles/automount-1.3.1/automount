@@ -242,3 +242,12 @@ case ${2} in
     ;;
 
 esac
+
+# camcontrol devlist
+# <INTEL SSDSA2M160G2GC 2CV102HD>    at scbus0 target 0 lun 0 (ada0,pass0)
+# <HTC Android Phone 0100>           at scbus4 target 0 lun 0 (pass1,da0)
+
+# camcontrol devlist | grep -E -o "<.*>" | tr ' ' '-' | tr -d '<>' 
+# INTEL-SSDSA2M160G2GC-2CV102HD
+# HTC-Android-Phone-0100
+
