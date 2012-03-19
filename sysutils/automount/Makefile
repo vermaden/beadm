@@ -1,6 +1,6 @@
 # New ports collection Makefile for: automount
 # Date created:                      04 March 2012
-# Whom:                              Slawomir Wojtczak <vermaden@interia.pl>
+# Whom:                              Slawomir Wojciech Wojtczak <vermaden@interia.pl>
 #
 # $FreeBSD$
 #
