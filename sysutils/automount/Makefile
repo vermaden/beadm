@@ -8,7 +8,7 @@
 PORTNAME=     automount
 PORTVERSION=  1.3.1
 CATEGORIES=   sysutils
-MASTER_SITES= https://github.com/vermaden/automount/tree/master/port/distfiles/ 
+MASTER_SITES= https://github.com/vermaden/automount/
 
 MAINTAINER=   vermaden@interia.pl
 COMMENT=      FreeBSD's devd(8) based automount sollution
