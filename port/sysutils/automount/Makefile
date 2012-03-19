@@ -1,6 +1,6 @@
-# New ports collection makefile for: automount
-# Date created:                      28 February 2012
-# Whom:                              vermaden
+# New ports collection Makefile for: automount
+# Date created:                      04 March 2012
+# Whom:                              Slawomir Wojtczak <vermaden@interia.pl>
 #
 # $FreeBSD$
 #
@@ -17,7 +17,7 @@ LICENSE=      BSD
 
 PLIST_FILES=  sbin/automount etc/devd/automount_devd.conf etc/automount.conf.sample
 
-NO_BUILD=      yes
+NO_BUILD=     yes
 
 do-install:
 	${INSTALL_SCRIPT} ${WRKSRC}/automount             ${PREFIX}/sbin
