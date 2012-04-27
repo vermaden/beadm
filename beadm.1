@@ -1,0 +1,137 @@
+.\"
+.\" beadm - Illumos/Solaris-like utility for FreeBSD to manage
+.\" Boot Environments on ZFS filesystems
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\"
+.\"
+.\"     @(#)beadm.1
+.\" $FreeBSD$
+.\"
+.Dd April 26, 2012
+.Dt BEADM 1
+.Os FreeBSD
+.Sh NAME
+.Nm beadm
+.Nd Utility to manage Boot Environments with ZFS
+.Sh SYNOPSIS
+.Nm
+activate
+.Ao Ar beName Ac
+.Nm
+create
+.Op Fl e Ar nonActiveBe | Ar beName@snapshot
+.Ao Ar beName Ac
+.Nm
+create
+.Ao Ar beName@snapshot Ac
+.Nm
+destroy
+.Ao Ar beName Ac
+.Nm
+destroy
+.Ao Ar beName@snapshot Ac
+.Nm
+list
+.Sh DESCRIPTION
+The
+.Nm
+command is used to setup and interact with Boot Environments with ZFS.
+.Pp
+.Em Boot Environments
+allow you to upgrade your system, while preserving your old environment in a separate ZFS dataset.
+.Pp
+.Sh COMMANDS
+The following commands are supported by
+.Nm :
+.Bl -tag -width indent
+.It Ic activate Ar <beName>
+.Pp
+Activate the given 
+.Ar beName
+for the next boot.
+.Pp
+.It Ic create
+.Op Fl e Ar nonActiveBe | Ar beName@snapshot
+.Ao Ar beName Ac
+.Pp
+Creates a new boot environment named
+.Ar beName .
+If the -e param is specified, the new environment will be clonsed from the given
+.Ar nonActiveBe | Ar beName@snapshot .
+.Pp
+.It Ic create
+.Ao Ar beName@snapshot Ac
+.Pp
+Creates a snapshot of the existing boot environment named
+.Ar beName .
+.Pp
+.It Ic destroy Ao Ar beName Ac
+.Pp
+Destroys the given
+.Ar beName
+boot environment.
+.It Ic destroy Ao Ar beName@snapshot Ac
+.Pp
+Destroys the given
+.Ar beName@snapshot
+snapshot.
+.Pp
+.It Ic list
+.Pp
+Displays all boot environments.
+.Pp
+.El
+.Sh EXAMPLES
+.Bl -bullet
+.It
+Perform a system upgrade in a 
+.Xr jail 8
+.Pp
+Create a new boot environment called
+.Em jailed
+.Pp
+.Dl beadm create -e default jailed
+.Pp
+Set mountpoint for new jail to
+.Pa /usr/jails/jailed
+.Pp
+.Dl zfs set mountpoint=/usr/jails/jailed zroot/ROOT/jailed
+.Pp
+Your current boot environment is now replicated into the jailed system.
+Startup the jail, login and perform the normal upgrade process. Once this is done, stop the jail and disable it in
+.Pa /etc/rc.conf.
+.Pp
+Now activate the boot environment for the next boot
+.Pp
+.Dl beadmn activate jailed
+.Pp
+Reboot into the new environment
+.Pp
+.Dl reboot
+.El
+.Sh HOWTO
+A HOWTO guide is posted at the FreeBSD forums: 
+.Bl -bullet
+.It
+.Ar http://forums.freebsd.org/showthread.php?t=31662
+.El
+.Pp
+.Sh SEE ALSO
+.Xr jail 8 ,
+.Xr zfs 8 ,
+.Xr zpool 8
+.Sh HISTORY
+.Xr beadm 1M
+originally appeared in Solaris.
+.Sh AUTHORS
+.An Slawomir Wojciech Wojtczak (vermaden) Aq vermaden@interia.pl
+.An Bryan Drewery Aq bryan@shatow.net
+Wrote the initial manual page, mostly from forum post.
