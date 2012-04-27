@@ -1,0 +1,555 @@
+<style>
+  body { margin-left:  16px;
+         margin-right: 16px;
+         font-size:    12px;
+         font-family:  georgia;
+  }
+  tt { color: #444444; }
+  pre { color: #444444;
+        background: #eeeeee;
+        border-left: solid 5px #2222dd;
+        padding: 1px 1px 1px 7px; }
+  pre b, tt b { color: #2222dd; }
+
+</style>
+
+<h1>FreeBSD ZFS Madness</h1>
+<h3>Slawomir Wojtczak (vermaden)</h3>
+<h4>2012/04/27</h4>
+
+<p>Some time ago I found a good, reliable way of using and installing FreeBSD
+and described it in my <i>Modern FreeBSD Install</i> <b>[1] [2]</b> HOWTO. Now, more
+then a year later I come back with my experiences about that setup and a
+proposal of newer and probably better way of doing it.</p>
+
+<hr style="border: 1px solid lightgray">
+
+<h3>1. Introduction</h3>
+
+<p>Same as year ago, I assume that You would want to create fresh installation of
+FreeBSD using one or more hard disks, but also with (laptops) and without GELI
+based full disk encryption.</p>
+
+<p>This guide was written when FreeBSD 9.0 and 8.3 were available and definitely
+works for 9.0, but I did not try all this on the older 8.3, if You find some
+issues on 8.3, let me know I will try to address them in this guide.</p>
+
+<p>Earlier, I was not that confident about booting from the ZFS pool, but there
+is some very neat feature that made me think ZFS boot is now mandatory. If You
+just smiled, You know that I am thinking about <i>Boot Environments</i> feature
+from Illumos/Solaris systems.</p> In case You are not familiar with the <i>Boot
+Environments</i> feature, check the <i>Managing Boot Environments with Solaris
+11 Express</i> PDF white paper <b>[3]</b>. Illumos/Solaris has the
+<tt>beadm(1M)</tt> <b>[4]</b> utility and while Philipp Wuensche wrote the
+<tt>manageBE</tt> script as replacement <b>[5]</b>, it uses older style used
+at times when OpenSolaris (and SUN) were still having a great time.</p>
+
+<p>I spent last couple of days writing an up-to-date replacement for FreeBSD
+compatible <tt>beadm</tt> utility, and with some tweaks from today I just made
+it available at <i>SourceForge</i> <b>[6]</b> if You wish to test it. Currently its
+about 200 lines long, si it should be pretty simple to take a look at it. I
+tried to make it as compatible as possible with the 'upstream' version, along
+with some small improvements, it currently supports basic functions like list,
+create, destroy and activate.</p>
+
+<pre># <b>beadm</b>
+usage:
+  beadm subcommand cmd_options
+
+  subcommands:
+
+  beadm activate beName
+  beadm create [-e nonActiveBe | beName@snapshot] beName
+  beadm create beName@snapshot
+  beadm destroy beName
+  beadm destroy beName@snapshot
+  beadm list</pre>
+
+<p>There are several subtle differences between mine implementation and
+Philipp's one, he defines and then relies upon ZFS property called
+<tt>freebsd:boot-environment=1</tt> for each boot environment, I do not set
+any other additional ZFS properties. There is already <tt>org.freebsd:swap</tt>
+property used for SWAP on FreeBSD, so we may use <tt>org.freebsd:be</tt> in the
+future, but is just a thought, right now its not used. My version also supports
+activating boot environments received with <tt>zfs recv</tt> command from other
+systems (it just updates appreciate <tt>/boot/zfs/zpool.cache</tt> file).</p>
+My implementation is also style compatible with current Illumos/Solaris
+<tt>beadm(1M)</tt> which is like the example below.</p>
+
+<pre># <b>beadm create -e default upgrade-test</b>
+Created successfully
+
+# <b>beadm list</b>
+BE           Active Mountpoint Space Policy Created
+default      N      /          1.06M static 2012-02-03 15:08
+upgrade-test R      -           560M static 2012-04-24 22:22
+new          -      -             8K static 2012-04-24 23:40
+
+# <b>zfs list -r sys/ROOT</b>
+NAME                    USED  AVAIL  REFER  MOUNTPOINT
+sys/ROOT                562M  8.15G   144K  none
+sys/ROOT/default       1.48M  8.15G   558M  legacy
+sys/ROOT/new              8K  8.15G   558M  none
+sys/ROOT/upgrade-test   560M  8.15G   558M  none
+
+# <b>beadm activate default</b>
+Activated successfully
+
+# <b>beadm list</b>
+BE           Active Mountpoint Space Policy Created
+default      NR     /          1.06M static 2012-02-03 15:08
+upgrade-test -      -           560M static 2012-04-24 22:22
+new          -      -             8K static 2012-04-24 23:40</pre>
+
+<p>The boot environments are located in the same plase as in Illumos/Solaris, at
+<tt>pool/ROOT/environment</tt> place.</p>
+
+
+
+<h3>2. Now You're Thinking with Portals</h3>
+
+<p>The main purpose of the <i>Boot Environments</i> concept is to make all
+risky tasks harmless, to provide an easy way back from possible troubles.
+Think about upgrading the system to newer version, an update of 30+ installed
+packages to latest versions, testing software or various solutions before
+taking the final decision, and much more. All these tasks are now harmless
+thanks to the <i>Boot Environments</i>, but this is just the tip of the
+iceberg.</p>
+
+<p>You can now move desired boot environment to other machine, physical or
+virtual and check how it will behave there, check hardware support on the other
+hardware for example or make a painless hardware upgrade. You may also clone
+Your desired boot environment and ... start it as a Jail for some more
+experiments or move Your old physical server install into FreeBSD Jail because
+its not that heavily used anymore but it still have to be available.</p>
+
+<p>Other good example may be just created server on Your laptop inside
+VirtualBox virtual machine. After you finish the creation process and tests,
+You may move this boot environment to the real server and put it into
+production. Or even move it into VMware ESX/vSphere virtual machine and use
+it there.</p>
+
+<p>As You see the possibilities with <i>Boot Environments</i> are unlimited.</p>
+
+
+
+
+<h3>3. The Install Process</h3>
+
+<p>I created 3 possible schemas which should cover most demands, choose one
+and continue to the next step.</p>
+
+<h4>3.1. Server with Two Disks</h4>
+
+<p>I assume that this server has 2 disks and we will create ZFS mirror across
+them, so if any of them will be gone the system will still work as usual.
+I also assume that these disks are <tt>ada0</tt> and <tt>ada1</tt>. If You
+have SCSI/SAS drives there, they may be named <tt>da0</tt> and <tt>da1</tt>
+accordingly. The <b>procedures below will wipe all data on these disks</b>,
+You have been warned.</p>
+
+<ol>
+<li>Boot from the FreeBSD USB/DVD.</li>
+<li>Select the '<tt>Live CD</tt>' option.</li>
+<li><tt>login: root</tt></li>
+<li><tt># sh</tt></li>
+<li><tt># DISKS="<b>ada0 ada1</b>"</tt></li>
+<li><tt># for I in ${DISKS}; do<br>
+        >   NUMBER=$( echo ${I} | tr -c -d '0-9' )<br>
+        >   gpart destroy -F ${I}<br>
+        >   gpart create -s GPT ${I}<br>
+        >   gpart add -t freebsd-boot -l bootcode${NUMBER} -s 128k ${I}<br>
+        >   gpart add -t freebsd-zfs -l sys${NUMBER} ${I}<br>
+        >   gpart bootcode -b /boot/pmbr -p /boot/gptzfsboot -i 1 ${I}<br>
+        > done</tt></li>
+<li><tt># zpool create -f -o cachefile=/tmp/zpool.cache sys mirror /dev/gpt/sys*</tt></li>
+<li><tt># zfs set mountpoint=none sys</tt></li>
+<li><tt># zfs set checksum=fletcher4 sys</tt></li>
+<li><tt># zfs set atime=off sys</tt></li>
+<li><tt># zfs create sys/ROOT</tt></li>
+<li><tt># zfs create -o mountpoint=/mnt sys/ROOT/default</tt></li>
+<li><tt># zpool set bootfs=sys/ROOT/default sys</tt></li>
+<li><tt># cd /usr/freebsd-dist/</tt></li>
+<li><tt># for I in base.txz kernel.txz; do<br>
+        >   tar --unlink -xvpJf ${I} -C /mnt<br>
+        > done</tt></li>
+<li><tt># cp /tmp/zpool.cache /mnt/boot/zfs/</tt></li>
+<li><tt># cat << EOF >> /mnt/boot/loader.conf<br>
+    > zfs_load=YES<br>
+    > vfs.root.mountfrom="zfs:sys/ROOT/default"<br>
+    > EOF</tt></li>
+<li><tt># cat << EOF >> /mnt/etc/rc.conf<br>
+    > zfs_enable=YES<br>
+    > EOF</tt></li>
+<li><tt># :> /mnt/etc/fstab</tt></li>
+<li><tt># zfs umount -a</tt></li>
+<li><tt># zfs set mountpoint=legacy sys/ROOT/default</tt></li>
+<li><tt># reboot</tt></li>
+</ol>
+
+<p>After these instructions and reboot we have these GPT partitions available,
+this example is on a 512MB disk.</p>
+
+<pre># <b>gpart show</b>
+=>     34  1048509  ada0  GPT  (512M)
+       34      256     1  freebsd-boot  (128k)
+      290  1048253     2  freebsd-zfs  (511M)
+
+=>     34  1048509  ada1  GPT  (512M)
+       34      256     1  freebsd-boot  (128k)
+      290  1048253     2  freebsd-zfs  (511M)
+
+# <b>gpart list | grep label</b>
+   label: bootcode0
+   label: sys0
+   label: bootcode1
+   label: sys1
+
+# <b>zpool status</b>
+  pool: sys
+ state: ONLINE
+ scan: none requested
+config:
+
+        NAME          STATE     READ WRITE CKSUM
+        sys           ONLINE       0     0     0
+          mirror-0    ONLINE       0     0     0
+            gpt/sys0  ONLINE       0     0     0
+            gpt/sys1  ONLINE       0     0     0
+
+errors: No known data errors</pre>
+
+
+
+<h4>3.2. Server with One Disk</h4>
+
+<p>If Your server configuration has only one disk, lets assume its
+<tt>ada0</tt>, then You need different points 5. and 7. to make, use these
+instead of the ones above.</p>
+
+<ol start="5">
+<li><tt># DISKS="<b>ada0</b>"</tt></li>
+</ol>
+
+<ol start="7">
+<li><tt># zpool create -f -o cachefile=/tmp/zpool.cache sys /dev/gpt/sys*</tt></li>
+</ol>
+
+<p>All other steps are the same.</p>
+
+
+
+<h4>3.3. Read Warrior Laptop</h4>
+
+<p>The procedure is quite diffrent for Laptop because we will use the full disk
+encryption mechanism provided by GELI and then setup the ZFS pool. Its not
+currently possible to boot off from the ZFS pool on top of encrypted GELI
+provider, so we will use setup similar to the <i>Server with ...</i> one but
+with additional <tt>local</tt> pool for <tt>/home</tt> and <tt>/root</tt>
+partitions. It will be password based and You will be asked to type-in that
+password at every boot. The install process is generally the same with new
+instructions added for the GELI encrypted <tt>local</tt> pool, I put them with
+<b style="color:green">different color</b> to make the difference more visible.</p>
+
+<ol>
+<li>Boot from the FreeBSD USB/DVD.</li>
+<li>Select the '<tt>Live CD</tt>' option.</li>
+<li><tt>login: root</tt></li>
+<li><tt># sh</tt></li>
+<li><tt># DISKS="<b>ada0</b>"</tt></li>
+<li><tt># for I in ${DISKS}; do<br>
+        >   NUMBER=$( echo ${I} | tr -c -d '0-9' )<br>
+        >   gpart destroy -F ${I}<br>
+        >   gpart create -s GPT ${I}<br>
+        >   gpart add -t freebsd-boot -l bootcode${NUMBER} -s 128k ${I}<br>
+        >   gpart add -t freebsd-zfs -l sys${NUMBER} -s 10G ${I}<br>
+        >   gpart add -t freebsd-zfs -l local${NUMBER} ${I}<br>
+        >   gpart bootcode -b /boot/pmbr -p /boot/gptzfsboot -i 1 ${I}<br>
+        > done</tt></li>
+<li><tt># zpool create -f -o cachefile=/tmp/zpool.cache sys /dev/gpt/sys0</tt></li>
+<li><tt># zfs set mountpoint=none sys</tt></li>
+<li><tt># zfs set checksum=fletcher4 sys</tt></li>
+<li><tt># zfs set atime=off sys</tt></li>
+<li><tt># zfs create sys/ROOT</tt></li>
+<li><tt># zfs create -o mountpoint=/mnt sys/ROOT/default</tt></li>
+<li><tt># zpool set bootfs=sys/ROOT/default sys</tt></li>
+<li><tt style="color:green;font-weight:bold"># geli init -b -s 4096 -e AES-CBC -l 128 /dev/gpt/local0</tt></li>
+<li><tt style="color:green;font-weight:bold"># geli attach /dev/gpt/local0</tt></li>
+<li><tt style="color:green;font-weight:bold"># zpool create -f -o cachefile=/tmp/zpool.cache local /dev/gpt/local0.eli</tt></li>
+<li><tt style="color:green;font-weight:bold"># zfs set mountpoint=none local</tt></li>
+<li><tt style="color:green;font-weight:bold"># zfs set checksum=fletcher4 local</tt></li>
+<li><tt style="color:green;font-weight:bold"># zfs set atime=off local</tt></li>
+<li><tt style="color:green;font-weight:bold"># zfs create local/home</tt></li>
+<li><tt style="color:green;font-weight:bold"># zfs create -o mountpoint=/mnt/root local/root</tt></li>
+<li><tt># cd /usr/freebsd-dist/</tt></li>
+<li><tt># for I in base.txz kernel.txz; do<br>
+        >   tar --unlink -xvpJf ${I} -C /mnt<br>
+        > done</tt></li>
+<li><tt># cp /tmp/zpool.cache /mnt/boot/zfs/</tt></li>
+<li><tt># cat << EOF >> /mnt/boot/loader.conf<br>
+    > zfs_load=YES<br>
+    <tt style="color:green;font-weight:bold">> geom_eli_load=YES</tt><br>
+    > vfs.root.mountfrom="zfs:sys/ROOT/default"<br>
+    > EOF</tt></li>
+<li><tt># cat << EOF >> /mnt/etc/rc.conf<br>
+    > zfs_enable=YES<br>
+    > EOF</tt></li>
+<li><tt># :> /mnt/etc/fstab</tt></li>
+<li><tt># zfs umount -a</tt></li>
+<li><tt># zfs set mountpoint=legacy sys/ROOT/default</tt></li>
+<li><tt style="color:green;font-weight:bold"># zfs set mountpoint=/home local/home</tt></li>
+<li><tt style="color:green;font-weight:bold"># zfs set mountpoint=/root local/root</tt></li>
+<li><tt># reboot</tt></li>
+</ol>
+
+<p>After these instructions and reboot we have these GPT partitions available,
+this example is on a 4GB disk.</p>
+
+<pre># <b>gpart show</b>
+=>     34  8388541  ada0  GPT  (4.0G)
+       34      256     1  freebsd-boot  (128k)
+      290  2097152     2  freebsd-zfs  (1.0G)
+  2097442  6291133     3  freebsd-zfs  (3G)
+
+# <b>gpart list | grep label</b>
+   label: bootcode0
+   label: sys0
+   label: local0
+
+# <b>zpool status</b>
+  pool: local
+ state: ONLINE
+ scan: none requested
+config:
+
+        NAME              STATE     READ WRITE CKSUM
+        sys               ONLINE       0     0     0
+          gpt/local0.eli  ONLINE       0     0     0
+
+errors: No known data errors
+
+  pool: sys
+ state: ONLINE
+ scan: none requested
+config:
+
+        NAME        STATE     READ WRITE CKSUM
+        sys         ONLINE       0     0     0
+          gpt/sys0  ONLINE       0     0     0
+
+errors: No known data errors</pre>
+
+
+
+<h3>4. Basic Setup after Install</h3>
+
+<ol>
+  <li>Login as <b>root</b> with empty password.</li>
+  <pre>login: <b>root</b>
+password: <b>[ENTER]</b></pre>
+
+  <li>Create initial <b>snapshot</b> after install.</li>
+  <tt># zfs snapshot -r sys/ROOT/default@install</tt>
+
+  <li>Set new <b>root</b> password.</li>
+  <tt># passwd</tt>
+
+  <li>Set machine's <b>hostname</b>.</li>
+  <tt># echo hostname=hostname.domain.com >> /etc/rc.conf</tt>
+
+  <li>Set proper <b>timezone</b>.</li>
+  <tt># tzsetup</tt>
+
+  <li>Add some <b>swap</b> space.</li>
+  <p>If You used the <i>Server with ...</i> type, then use this to add swap.</p>
+  <pre># <b>zfs create -V 1G -o org.freebsd:swap=on \
+                   -o checksum=off \
+                   -o sync=disabled \
+                   -o primarycache=none \
+                   -o secondarycache=none sys/swap</b>
+# <b>swapon /dev/zvol/sys/swap</b></pre>
+  <p>If You used the <i>Road Warrior Laptop</i> one, then use this one below,
+  this was the swap space will also be encrypted.</p>
+  <pre># <b>zfs create -V 1G -o org.freebsd:swap=on \
+                   -o checksum=off \
+                   -o sync=disabled \
+                   -o primarycache=none \
+                   -o secondarycache=none local/swap</b>
+# <b>swapon /dev/zvol/local/swap</b></pre>
+
+  <li>Create <b>snapshot</b> called <tt>configured</tt> or <tt>production</tt></li>
+  <p>After You configured Your fresh FreeBSD system, added needed packages
+  and services, create <b>snapshot</b> called <tt>configured</tt> or
+  <tt>production</tt> so if You mess something, You can always go back in time
+  to bring working configuration back.  mess something.</p>
+  <tt># zfs snapshot -r sys/ROOT/default@configured</tt>
+
+</ol>
+
+
+
+
+
+<h3>5. Enable Boot Environments</h3>
+
+<p>Here are some simple instructions on how to download and enable the
+<tt>beadm</tt> command line utility for easy <i>Boot Environments</i>
+administration. </p>
+
+<pre># <b>fetch https://downloads.sourceforge.net/project/beadm/beadm -o /usr/sbin/beadm</b>
+# <b>chmod +x /usr/sbin/beadm</b>
+# <b>rehash</b>
+# <b>beadm list</b>
+BE      Active Mountpoint Space Policy Created
+default NR     /           592M static 2012-04-25 02:03</pre>
+
+
+
+<h3>6. WYSIWTF</h3>
+
+<p>Now we have a working ZFS only FreeBSD system, I will put some example here
+about what You now can do with this type of installation and of course the
+<i>Boot Environments</i> feature.</p>
+
+<h4>6.1. Create New Boot Environmnent Before Upgrade</h4>
+
+<ol>
+  <li>Create new environment from the current one.</li>
+  <tt># beadm create upgrade</tt>
+
+  <li>Activate it.</li>
+  <tt># beadm activate upgrade</tt>
+
+  <li>Reboot into it.</li>
+  <tt># shutdown -r now</tt>
+
+  <li>Mess with it.</li>
+  <p>You are now free to do anything You like fo or the upgrade process,
+  but even if You break everything, You still have a working <tt>default</tt>
+  working environment.</p>
+</ol>
+
+
+<h4>6.2. Perform Upgrade within a Jail</h4>
+
+<p>This concept is about creating new boot environment from the
+desired one, lets call it <tt>jailed</tt>, then start that new environment
+inside a FreeBSD Jail and perform upgrade there. After You have finished all
+tasks related to this upgrade and You are satisfied with the achieved results,
+shutdown that Jail, set the boot environment into that just upgraded Jail
+called <tt>jailed</tt> and reboot into just upgraded system without any
+risks.</p>
+
+<ol>
+  <li>Create new boot environment called <tt>jailed</tt>.</li>
+  <pre># <b>beadm create -e default jailed</b>
+Created successfully</pre>
+
+  <li>Create <tt>/usr/jails</tt> directory.</li>
+  <tt># <b>mkdir /usr/jails</b></tt>
+
+  <li>Set mount point of new boot environment to <tt>/usr/jails/jailed</tt> dir.</li>
+  <tt># <b>zfs set mountpoint=/usr/jails/jailed sys/ROOT/jailed</b></tt>
+
+  <li>Enable FreeBSD Jails mechanism and the <tt>jailed</tt> Jail in
+  <tt>/etc/rc.conf</tt> file.</li>
+  <tt># <b>cat << EOF >> /etc/rc.conf</b><br>
+> <b>jail_enable=YES</b><br>
+> <b>jail_list="jailed"</b><br>
+> <b>jail_jailed_rootdir="/usr/jails/jailed"</b><br>
+> <b>jail_jailed_hostname="jailed"</b><br>
+> <b>jail_jailed_ip="10.20.30.40"</b><br>
+> <b>jail_jailed_devfs_enable="YES"</b><br>
+> <b>EOF</b></tt>
+
+  <li>Start the Jails mechanism.</li>
+  <pre># <b>/etc/rc.d/jail start</b>
+Configuring jails:.
+Starting jails: jailed.</pre>
+
+  <li>Check if the <tt>jailed</tt> Jail started.</li>
+  <pre># <b>jls</b>
+   JID  IP Address      Hostname                      Path
+     1  10.20.30.40     jailed                        /usr/jails/jailed</pre>
+
+  <li>Login into the <tt>jailed</tt> Jail.</li>
+  <tt># <b>jexec 1 tcsh</b></tt>
+
+  <li><b>PERFORM ACTUAL UPGRADE.</b></li>
+
+  <li>Stop the <tt>jailed</tt> Jail.</li>
+  <pre># <b>/etc/rc.d/jail stop</b>
+Stopping jails: jailed.</pre>
+
+  <li>Disable Jails mechanism in <tt>/etc/rc.conf</tt> file.</li>
+<tt># <b>sed -i '' -E s/"^jail_enable.*$"/"jail_enable=NO"/g /etc/rc.conf</b></tt>
+
+  <li>Activate just upgraded <tt>jailed</tt> boot environment.</li>
+  <pre># <b>bootfs-beadm activate jailed</b>
+Activated successfully</pre>
+
+  <li>Restart the system into upgraded system.</li>
+  <tt># <b>shutdown -r now</b></tt>
+</ol>
+
+
+<h4>6.3. Import Boot Environmnent from Other Machine</h4>
+
+<p>Lets assume, that You need to upgrade or do some major modification to
+some of Your servers, You will then create new boot environment from the
+default one, move it to other 'free' machine, perform these tasks there
+and after everything is done, move the modified boot environment to the
+production without any risks. You may as well trasnport that environment
+into You laptop/workstation and upgrade it in a Jail like in step 6.2 of
+this guide.</p>
+
+<ol>
+  <li>Create new environment on the <i>production</i> server.</li>
+  <pre># <b>beadm create upgrade</b>
+Created successfully.</pre>
+
+  <li>Send the <tt>upgrade</tt> environment to <i>test</i> server.</li>
+  <tt># <b>zfs send sys/ROOT/upgrade | ssh TEST zfs recv -u sys/ROOT/upgrade</b></tt>
+
+  <li>Activate the <tt>upgrade</tt> environment on the <i>test</i> server.</li>
+  <pre># <b>beadm activate upgrade</b>
+Activated successfully.</pre>
+
+  <li>Reboot into the <tt>upgrade</tt> environment on the <i>test</i> server.</li>
+  <tt># <b>shutdown -r now</b></tt>
+
+  <li><b>PERFORM ACTUAL UPGRADE AFTER REBOOT.</b></li>
+
+  <li>Sent the upgraded <tt>upgrade</tt> environment onto <i>production</i> server.</li>
+  <tt># <b>zfs send sys/ROOT/upgrade | ssh PRODUCTION zfs recv -u sys/ROOT/upgrade</b></tt>
+
+  <li>Activate upgraded <tt>upgrade</tt> environment on the <i>production</i> server.</li>
+  <pre># <b>beadm activate upgrade</b>
+Activated successfully.</pre>
+
+  <li>Reboot into the <tt>upgrade</tt> environment on the <i>production</i> server.</li>
+  <tt># <b>shutdown -r now</b></tt>
+</ol>
+
+<h3>7. References</h3>
+<ul>
+<li><b><tt>[1]</tt></b> <a style="color:blue">http://forums.freebsd.org/showthread.php?t=10334</a></li>
+<li><b><tt>[2]</tt></b> <a style="color:blue">http://forums.freebsd.org/showthread.php?t=12082</a></li>
+<li><b><tt>[3]</tt></b> <a style="color:blue">http://docs.oracle.com/cd/E19963-01/pdf/820-6565.pdf</a></li>
+<li><b><tt>[4]</tt></b> <a style="color:blue">http://docs.oracle.com/cd/E19963-01/html/821-1462/beadm-1m.html</a></li>
+<li><b><tt>[5]</tt></b> <a style="color:blue">http://anonsvn.h3q.com/projects/freebsd-patches/wiki/manageBE</a></li>
+<li><b><tt>[6]</tt></b> <a style="color:blue">https://sourceforge.net/projects/beadm/</a></li>
+</ul>
+</tt>
+
+<p>The last part of the HOWTO remains the same as Year ago ...</p>
+
+<p>You can now add your users, services and packages as usual on any FreeBSD system, have fun ;)</p>
+
+
+
+
+<br>
+
+<br>
+<br>

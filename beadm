@@ -1,0 +1,215 @@
+#!/bin/sh
+
+# Copyright (c) 2012 Slawomir Wojciech Wojtczak (vermaden)
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that following conditions are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS 'AS IS' AND ANY
+# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE FOR ANY
+# DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+# THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+unset LC_ALL
+unset LANG
+PATH=${PATH}:/bin:/usr/bin:/sbin:/usr/sbin
+
+[ $( uname -r | cut -d '.' -f1 ) -lt 8 ] \
+  && echo "ERROR: beadm only works on FreeBSD 8.0 or later."
+
+__usage() {
+  NAME=${0##*/}
+  echo "usage:"
+  echo "  ${NAME} subcommand cmd_options"
+  echo
+  echo "  subcommands:"
+  echo
+  echo "  ${NAME} activate beName"
+  echo "  ${NAME} create [-e nonActiveBe | beName@snapshot] beName"
+  echo "  ${NAME} create beName@snapshot"
+  echo "  ${NAME} destroy beName"
+  echo "  ${NAME} destroy beName@snapshot"
+  echo "  ${NAME} list"
+  exit 1
+}
+
+__be_exist() { # 1=DATASET
+  zfs list -H -o name ${1} 1> /dev/null 2> /dev/null || {
+    echo "ERROR: Boot environment '${1##*/}' does not exist"
+    exit 1
+  }
+}
+
+__be_snapshot() { # 1=DATASET/SNAPSHOT
+  echo "${1}" | grep -q "@"
+}
+
+__be_new() { # 1=SOURCE 2=TARGET
+  __be_snapshot && {
+    zfs clone ${1} ${2}
+  } || {
+    zfs list -H -o name ${1}@${2##*/} 1> /dev/null 2> /dev/null && {
+      echo "ERROR: Snapshot '${1}@${2##*/}' exists"
+      exit 1
+    }
+    zfs snapshot -r ${1}@${2##*/} 1> /dev/null 2> /dev/null || {
+      echo "ERROR: Cannot create snapshot '${1}@${2##*/}'"
+      exit 1
+    }
+    zfs clone ${1}@${2##*/} ${2}
+  }
+  BASENAME=${1##*/}
+  zfs list -H -o name -t filesystem -r ${1} \
+    | grep -v -E "${1}$" \
+    | while read I
+      do
+        DATASET=$( echo ${I} | sed s/"${POOL}\/ROOT\/${BASENAME}\/"//g )
+        zfs clone ${I}@${2##*/} ${2}/${DATASET}
+      done
+  echo "Created successfully"
+}
+
+ROOTFS=$( mount | awk '/ \/ / {print $1}' )
+echo ${ROOTFS} | grep -q -E "^/dev/" && {
+  echo "ERROR: This system does not boot from ZFS pool"
+  exit 1
+}
+POOL=$( echo ${ROOTFS} | awk -F '/' '{print $1}' )
+BOOTFS=$( zpool list -H -o bootfs ${POOL} )
+
+case ${1} in
+  (list) # --------------------------------------------------------------------
+    POOL_PREFIX="${POOL}/ROOT"
+    LIST=$( zfs list -o name,used,mountpoint,creation -s creation -H -d 1 -r ${POOL}/ROOT | grep -E "^${POOL}/ROOT/" )
+    WIDTH_CREATION=$( echo "${LIST}" | awk '{print $5}' | wc -L )
+    WIDTH_NAME=$( echo "${LIST}" | awk '{print $1}' | wc -L )
+    WIDTH_NAME=$(( ${WIDTH_NAME} - ${#POOL_PREFIX} - 1 ))
+    printf "%-${WIDTH_NAME}s %-6s %-10s %5s %6s %s\n" \
+      BE Active Mountpoint Space Policy Created
+    echo "${LIST}" \
+      | while read NAME USED MOUNTPOINT C R E A T
+        do
+          NAME=${NAME##*/}
+          unset ACTIVE
+          [ "${POOL_PREFIX}/${NAME}" = "${ROOTFS}" ] && ACTIVE="${ACTIVE}N"
+          [ "${POOL_PREFIX}/${NAME}" = "${BOOTFS}" ] && ACTIVE="${ACTIVE}R"
+          [ -z "${ACTIVE}" ] && ACTIVE="-"
+          printf "%-${WIDTH_NAME}s %-6s " ${NAME} ${ACTIVE}
+          case ${ACTIVE} in
+            (N|NR) MOUNT="/" ;;
+            (*)    MOUNT="-" ;;
+          esac
+          printf "%-10s %5s %-6s " ${MOUNT} ${USED} "static"
+          date -j -f "%a %b %d %H:%M %Y" "${C} ${R} ${E} ${A} ${T}" +"%Y-%m-%d %H:%M"
+        done
+    ;;
+  (create) # ------------------------------------------------------------------
+    case ${#} in
+      (4)
+        [ ${2} = "-e" ] || __usage
+        __be_exist ${POOL}/ROOT/${3}
+        zfs list -H -o name ${POOL}/ROOT/${4} 2> /dev/null && {
+          echo "ERROR: Boot environment '${4}' already exists"
+          exit 1
+        }
+        __be_new ${POOL}/ROOT/${3} ${POOL}/ROOT/${4}
+        ;;
+      (2)
+        __be_snapshot ${2} && {
+          zfs snapshot ${POOL}/ROOT/${2} 2> /dev/null || {
+            echo "ERROR: Cannot create '${2}' snapshot"
+            exit 1
+          }
+          echo "Created successfully"
+        } || {
+          __be_new ${ROOTFS} ${POOL}/ROOT/${2}
+        }
+        ;;
+      (*)
+        __usage
+        ;;
+    esac
+    ;;
+  (activate) # ----------------------------------------------------------------
+    [ "${BOOTFS}" = "${POOL}/ROOT/${2}" ] || {
+      [ "${ROOTFS}" = "${POOL}/ROOT/${2}" ] || {
+        MNT="/tmp/BE"
+        mkdir -p ${MNT} || {
+          echo "ERROR: Cannot create '${MNT}' directory"
+          exit 1
+        }
+        zfs set mountpoint=${MNT} ${POOL}/ROOT/${2}
+        cp /boot/zfs/zpool.cache ${MNT}/boot/zfs/zpool.cache
+        sed -i '' -E s/"^vfs.root.mountfrom=.*$"/"vfs.root.mountfrom=\"zfs:${POOL}\/ROOT\/${2##*/}\""/g ${MNT}/boot/loader.conf
+        zfs set mountpoint=legacy ${POOL}/ROOT/${2}
+      }
+      zpool set bootfs=${POOL}/ROOT/${2} ${POOL} && {
+      } || {
+        echo "ERROR: Failed to activate '${POOL}/ROOT/${2}'"
+        exit 1
+      }
+    }
+    zfs list -H -o name -t filesystem -r ${POOL}/ROOT/${2} \
+      | while read I
+        do
+          zfs promote ${POOL}/ROOT/${2} 2> /dev/null
+        done
+    echo "Activated successfully"
+    ;;
+  (destroy) # ----------------------------------------------------------------
+    __be_exist ${POOL}/ROOT/${2}
+    [ "${BOOTFS}" = "${POOL}/ROOT/${2}" ] && {
+      echo "ERROR: '${POOL}/ROOT/${2}' is current active boot environment"
+      exit 1
+    }
+    echo "Are you sure you want to destroy '${2}'?"
+    echo -n "This action cannot be undone (y/[n]): "
+    read CHOICE
+    case ${CHOICE} in
+      (Y|y|[Yy][Ee][Ss])
+        __be_snapshot ${POOL}/ROOT/${2} && {
+          zfs destroy ${POOL}/ROOT/${2} 1> /dev/null 2> /dev/null || {
+            echo "ERROR: Snapshot '${2}' is origin for other boot environment(s)"
+            exit 1
+          }
+        } || {
+          ORIGINS=$( zfs list -r -H -o origin ${POOL}/ROOT/${2} )
+          zfs destroy ${POOL}/ROOT/${2} 1> /dev/null 2> /dev/null || {
+            zfs destroy -r ${POOL}/ROOT/${2} 2>&1 \
+              | grep "${POOL}/ROOT/" \
+              | grep -v "@" \
+              | while read I
+                do
+                  zfs promote ${I} 2> /dev/null
+                done
+
+          echo "${ORIGINS}" \
+            | while read I
+              do
+                zfs destroy -r ${I} 2> /dev/null
+              done
+          }
+        }
+        echo "Destroyed successfully"
+        ;;
+      (*)
+        echo "'${2}' has not been destroyed"
+        ;;
+    esac
+    ;;
+  (*) # -----------------------------------------------------------------------
+    __usage
+    ;;
+esac
