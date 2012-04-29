@@ -164,7 +164,7 @@ case ${1} in
     zfs list -H -o name -t filesystem -r ${POOL}/ROOT/${2} \
       | while read I
         do
-          zfs promote ${POOL}/ROOT/${2} 2> /dev/null
+          zfs promote ${I} 2> /dev/null
         done
     echo "Activated successfully"
     ;;
