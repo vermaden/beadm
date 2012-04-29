@@ -152,7 +152,9 @@ case ${1} in
         }
         zfs set mountpoint=${MNT} ${POOL}/ROOT/${2}
         cp /boot/zfs/zpool.cache ${MNT}/boot/zfs/zpool.cache
-        sed -i '' -E s/"^vfs.root.mountfrom=.*$"/"vfs.root.mountfrom=\"zfs:${POOL}\/ROOT\/${2##*/}\""/g ${MNT}/boot/loader.conf
+        LOADER_CONFIGS=${MNT}/boot/loader.conf
+        [ -f ${MNT}/boot/loader.conf.local ] && LOADER_CONFIGS="${LOADER_CONFIGS} ${MNT}/boot/loader.conf.local"
+        sed -i '' -E s/"^vfs.root.mountfrom=.*$"/"vfs.root.mountfrom=\"zfs:${POOL}\/ROOT\/${2##*/}\""/g ${LOADER_CONFIGS}
         zfs set mountpoint=legacy ${POOL}/ROOT/${2}
       }
       zpool set bootfs=${POOL}/ROOT/${2} ${POOL} && {
