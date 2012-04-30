@@ -57,7 +57,7 @@ __be_snapshot() { # 1=DATASET/SNAPSHOT
 }
 
 __be_new() { # 1=SOURCE 2=TARGET
-  __be_snapshot && {
+  __be_snapshot ${1} && {
     zfs clone ${1} ${2}
   } || {
     zfs list -H -o name ${1}@${2##*/} 1> /dev/null 2> /dev/null && {
@@ -70,13 +70,13 @@ __be_new() { # 1=SOURCE 2=TARGET
     }
     zfs clone ${1}@${2##*/} ${2}
   }
-  BASENAME=${1##*/}
   zfs list -H -o name -t filesystem -r ${1} \
     | grep -v -E "${1}$" \
     | while read I
       do
-        DATASET=$( echo ${I} | sed s/"${POOL}\/ROOT\/${BASENAME}\/"//g )
+        DATASET=$( echo ${I} | sed s/"${POOL}\/ROOT\/${1##*/}\/"//g )
         zfs clone ${I}@${2##*/} ${2}/${DATASET}
+        zfs set canmount=noauto ${2}/${DATASET}
       done
   echo "Created successfully"
 }
@@ -143,6 +143,7 @@ case ${1} in
     esac
     ;;
   (activate) # ----------------------------------------------------------------
+    __be_exist ${POOL}/ROOT/${2}
     [ "${BOOTFS}" = "${POOL}/ROOT/${2}" ] || {
       [ "${ROOTFS}" = "${POOL}/ROOT/${2}" ] || {
         MNT="/tmp/BE"
@@ -151,8 +152,10 @@ case ${1} in
           exit 1
         }
         zfs set mountpoint=${MNT} ${POOL}/ROOT/${2}
-        cp /boot/zfs/zpool.cache ${MNT}/boot/zfs/zpool.cache
-        sed -i '' -E s/"^vfs.root.mountfrom=.*$"/"vfs.root.mountfrom=\"zfs:${POOL}\/ROOT\/${2##*/}\""/g ${MNT}/boot/loader.conf
+        cp /boot/zfs/zpool.cache ${MNT}/boot/zfs/zpool.cache 2> /dev/null
+        LOADER_CONFIGS=${MNT}/boot/loader.conf
+        [ -f ${MNT}/boot/loader.conf.local ] && LOADER_CONFIGS="${LOADER_CONFIGS} ${MNT}/boot/loader.conf.local"
+        sed -i '' -E s/"^vfs.root.mountfrom=.*$"/"vfs.root.mountfrom=\"zfs:${POOL}\/ROOT\/${2##*/}\""/g ${LOADER_CONFIGS} 2> /dev/null
         zfs set mountpoint=legacy ${POOL}/ROOT/${2}
       }
       zpool set bootfs=${POOL}/ROOT/${2} ${POOL} && {
@@ -161,10 +164,20 @@ case ${1} in
         exit 1
       }
     }
+    zfs list -H -o name -r sys/ROOT \
+      | grep -v "${POOL}/ROOT/${2}" \
+      | while read I
+        do
+          zfs set canmount=noauto ${I}
+        done
     zfs list -H -o name -t filesystem -r ${POOL}/ROOT/${2} \
       | while read I
         do
-          zfs promote ${POOL}/ROOT/${2} 2> /dev/null
+          MOUNT=$( echo ${I} | sed s/"${POOL}\/ROOT\/${2}"//g )
+          zfs set canmount=noauto ${I}
+          [ "$MOUNT" = "" ] || zfs set mountpoint=${MOUNT} ${I}
+          zfs set canmount=on ${I} 2> /dev/null
+          zfs promote ${I} 2> /dev/null
         done
     echo "Activated successfully"
     ;;
