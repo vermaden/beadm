@@ -164,7 +164,7 @@ case ${1} in
         exit 1
       }
     }
-    zfs list -H -o name -r sys/ROOT \
+    zfs list -H -o name -r ${POOL}/ROOT \
       | grep -v "${POOL}/ROOT/${2}" \
       | while read I
         do
