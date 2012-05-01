@@ -78,6 +78,17 @@ __be_new() { # 1=SOURCE 2=TARGET
         zfs clone ${I}@${2##*/} ${2}/${DATASET}
         zfs set canmount=noauto ${2}/${DATASET}
       done
+  zfs get -r -H quota,reservation,recordsize,mountpoint,sharenfs,checksum,atime,compression,exec,setuid,readonly,jailed,snapdir,aclmode,aclinherit,copies,sharesmb,primarycache,secondarycache,dedup,logbias,sync ${1} \
+    | grep -v "@" \
+    | while read I
+      do
+        SOURCE=${1##*/}
+        TARGET=${2##*/}
+        DATASET=$( echo ${I} | awk '{print $1}' | sed s/"${POOL}\/ROOT\/${SOURCE}"/"${POOL}\/ROOT\/${TARGET}"/g )
+        PROPERTY=$( echo ${I} | awk '{print $2}' )
+        VALUE=$( echo ${I} | awk '{print $3}' )
+        zfs set ${PROPERTY}=${VALUE} ${DATASET}
+      done
   echo "Created successfully"
 }
 
@@ -174,8 +185,6 @@ case ${1} in
       | while read I
         do
           MOUNT=$( echo ${I} | sed s/"${POOL}\/ROOT\/${2}"//g )
-          zfs set canmount=noauto ${I}
-          [ "$MOUNT" = "" ] || zfs set mountpoint=${MOUNT} ${I}
           zfs set canmount=on ${I} 2> /dev/null
           zfs promote ${I} 2> /dev/null
         done
@@ -193,6 +202,11 @@ case ${1} in
     case ${CHOICE} in
       (Y|y|[Yy][Ee][Ss])
         __be_snapshot ${POOL}/ROOT/${2} && {
+          zfs list -H -o origin -r ${POOL}/ROOT/${2} \
+            | while read I
+              do
+                zfs destroy ${I}
+              done
           zfs destroy ${POOL}/ROOT/${2} 1> /dev/null 2> /dev/null || {
             echo "ERROR: Snapshot '${2}' is origin for other boot environment(s)"
             exit 1
