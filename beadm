@@ -77,12 +77,15 @@ __be_new() { # 1=SOURCE 2=TARGET
         do
           OPTS="-o ${PROPERTY}=${VALUE} ${OPTS}"
         done << EOF
-$( zfs get -s local,none -H all ${FS} | grep -v -E "(type|creation|used|available|referenced|compressratio|mounted|origin|version|utf8only|normalization|casesensitivity|vscan|nbmand|mlslabel|refcompressratio|canmount)" )
+$( zfs get -s local -H all ${FS} | grep -v -E "(mountpoint|canmount)" )
 EOF
         SOURCE=${1##*/}
         TARGET=${2##*/}
         DATASET=$( echo ${FS} | awk '{print $1}' | sed -E s/"^${POOL}\/ROOT\/${SOURCE}"/"${POOL}\/ROOT\/${TARGET}"/g )
+        [ "${OPTS}" = "-o =" ] && OPTS=""
         zfs clone -o canmount=noauto ${OPTS} ${FS}@${2##*/} ${DATASET}
+        MOUNT=$( zfs get -H -o value mountpoint ${FS} )
+        zfs set mountpoint=${MOUNT} ${DATASET}
       done
   echo "Created successfully"
 }
@@ -150,7 +153,10 @@ case ${1} in
     ;;
   (activate) # ----------------------------------------------------------------
     __be_exist ${POOL}/ROOT/${2}
-    [ "${BOOTFS}" = "${POOL}/ROOT/${2}" ] || {
+    [ "${BOOTFS}" = "${POOL}/ROOT/${2}" ] && {
+      echo "Already activated"
+      exit 0
+    } || {
       [ "${ROOTFS}" = "${POOL}/ROOT/${2}" ] || {
         MNT="/tmp/BE"
         mkdir -p ${MNT} || {
@@ -158,10 +164,12 @@ case ${1} in
           exit 1
         }
         zfs set mountpoint=${MNT} ${POOL}/ROOT/${2}
-        cp /boot/zfs/zpool.cache ${MNT}/boot/zfs/zpool.cache 2> /dev/null
+        zfs mount ${POOL}/ROOT/${2}
+        cp /boot/zfs/zpool.cache ${MNT}/boot/zfs/zpool.cache # 2> /dev/null
         LOADER_CONFIGS=${MNT}/boot/loader.conf
         [ -f ${MNT}/boot/loader.conf.local ] && LOADER_CONFIGS="${LOADER_CONFIGS} ${MNT}/boot/loader.conf.local"
         sed -i '' -E s/"^vfs.root.mountfrom=.*$"/"vfs.root.mountfrom=\"zfs:${POOL}\/ROOT\/${2##*/}\""/g ${LOADER_CONFIGS} 2> /dev/null
+        zfs umount ${POOL}/ROOT/${2}
         zfs set mountpoint=legacy ${POOL}/ROOT/${2}
       }
       zpool set bootfs=${POOL}/ROOT/${2} ${POOL} && {
@@ -179,8 +187,11 @@ case ${1} in
     zfs list -H -o name -t filesystem -r ${POOL}/ROOT/${2} \
       | while read I
         do
+          MOUNT=$( zfs get -H -o value mountpoint ${I} )
+          zfs set canmount=noauto ${I}
+          [ "${MOUNT}" = legacy ] || zfs set mountpoint=${MOUNT} ${I}
           zfs set canmount=on ${I} 2> /dev/null
-          zfs promote ${I} 2> /dev/null
+          zfs promote ${I}
         done
     echo "Activated successfully"
     ;;
@@ -216,7 +227,6 @@ case ${1} in
               do
                 zfs destroy -r ${I} 2> /dev/null
               done
-
         }
         echo "Destroyed successfully"
         ;;
