@@ -92,7 +92,7 @@ EOF
         then
           OPTS=""
         fi
-        zfs clone -o canmount=noauto ${OPTS} ${FS}@${2##*/} ${DATASET}
+        zfs clone -o canmount=off ${OPTS} ${FS}@${2##*/} ${DATASET}
       done
   echo "Created successfully"
 }
