@@ -237,21 +237,17 @@ EOF
         exit 1
       fi
     fi
+    # Disable mounting on all inactive datasets
     zfs list -H -o name -r ${POOL}/ROOT \
       | grep -v "${POOL}/ROOT/${2}" \
       | while read I
         do
           zfs set canmount=noauto ${I}
         done
+    # Enable mounting for the active BE and promote it
     zfs list -H -o name -t filesystem -r ${POOL}/ROOT/${2} \
       | while read I
         do
-          MOUNT=$( zfs get -H -o value mountpoint ${I} )
-          zfs set canmount=noauto ${I}
-          if [ "${MOUNT}" != legacy ]
-          then
-            zfs set mountpoint=${MOUNT} ${I}
-          fi
           zfs set canmount=on ${I} 2> /dev/null
           zfs promote ${I} 2> /dev/null
         done
