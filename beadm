@@ -83,7 +83,7 @@ __be_new() { # 1=SOURCE 2=TARGET
         do
           OPTS="-o ${PROPERTY}=${VALUE} ${OPTS}"
         done << EOF
-$( zfs get -s local -H all ${FS} | grep -v -E "(mountpoint|canmount)" )
+$( zfs get -s local -H all ${FS} | grep -v -E "(canmount)" )
 EOF
         SOURCE=${1##*/}
         TARGET=${2##*/}
@@ -92,9 +92,7 @@ EOF
         then
           OPTS=""
         fi
-        zfs clone -o canmount=noauto ${OPTS} ${FS}@${2##*/} ${DATASET}
-        MOUNT=$( zfs get -H -o value mountpoint ${FS} )
-        zfs set mountpoint=${MOUNT} ${DATASET}
+        zfs clone -o canmount=off ${OPTS} ${FS}@${2##*/} ${DATASET}
       done
   echo "Created successfully"
 }
@@ -215,6 +213,7 @@ $( mount -p | awk '{print $1 " " $2}' )
 EOF
         if [ ${MOUNT} -eq 0 ]
         then
+          zfs set canmount=noauto ${POOL}/ROOT/${2}
           zfs set mountpoint=${TMPMNT} ${POOL}/ROOT/${2}
           zfs mount ${POOL}/ROOT/${2} 1> /dev/null 2> /dev/null
         else
@@ -239,21 +238,17 @@ EOF
         exit 1
       fi
     fi
+    # Disable mounting on all inactive datasets
     zfs list -H -o name -r ${POOL}/ROOT \
       | grep -v "${POOL}/ROOT/${2}" \
       | while read I
         do
           zfs set canmount=noauto ${I}
         done
+    # Enable mounting for the active BE and promote it
     zfs list -H -o name -t filesystem -r ${POOL}/ROOT/${2} \
       | while read I
         do
-          MOUNT=$( zfs get -H -o value mountpoint ${I} )
-          zfs set canmount=noauto ${I}
-          if [ "${MOUNT}" != legacy ]
-          then
-            zfs set mountpoint=${MOUNT} ${I}
-          fi
           zfs set canmount=on ${I} 2> /dev/null
           zfs promote ${I} 2> /dev/null
         done
