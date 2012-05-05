@@ -83,7 +83,7 @@ __be_new() { # 1=SOURCE 2=TARGET
         do
           OPTS="-o ${PROPERTY}=${VALUE} ${OPTS}"
         done << EOF
-$( zfs get -s local -H all ${FS} | grep -v -E "(mountpoint|canmount)" )
+$( zfs get -s local -H all ${FS} | grep -v -E "(canmount)" )
 EOF
         SOURCE=${1##*/}
         TARGET=${2##*/}
@@ -93,8 +93,6 @@ EOF
           OPTS=""
         fi
         zfs clone -o canmount=noauto ${OPTS} ${FS}@${2##*/} ${DATASET}
-        MOUNT=$( zfs get -H -o value mountpoint ${FS} )
-        zfs set mountpoint=${MOUNT} ${DATASET}
       done
   echo "Created successfully"
 }
