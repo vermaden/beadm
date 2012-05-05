@@ -213,6 +213,7 @@ $( mount -p | awk '{print $1 " " $2}' )
 EOF
         if [ ${MOUNT} -eq 0 ]
         then
+          zfs set canmount=noauto ${POOL}/ROOT/${2}
           zfs set mountpoint=${TMPMNT} ${POOL}/ROOT/${2}
           zfs mount ${POOL}/ROOT/${2} 1> /dev/null 2> /dev/null
         else
