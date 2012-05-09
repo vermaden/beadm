@@ -101,7 +101,7 @@ EOF
         then
           local OPTS=""
         fi
-        zfs clone -o canmount=off ${OPTS} ${FS}@${SNAPSHOT} ${DATASET}
+        zfs clone -o canmount=off ${OPTS} ${FS}@${2##*/} ${DATASET}
       done
   echo "Created successfully"
 }
