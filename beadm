@@ -260,11 +260,14 @@ EOF
           zfs set canmount=noauto ${I}
         done
     # Enable mounting for the active BE and promote it
-    zfs list -H -o name -t filesystem -r ${POOL}/ROOT/${2} \
-      | while read I
+    zfs list -H -o name,origin -t filesystem -r ${POOL}/ROOT/${2} \
+      | while read I ORIGIN
         do
           zfs set canmount=on ${I} 2> /dev/null
-          zfs promote ${I} 2> /dev/null
+          if [ ${ORIGIN} != "-" ]
+          then
+            zfs promote ${I}
+          fi
         done
     echo "Activated successfully"
     ;;
