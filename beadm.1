@@ -40,13 +40,17 @@ destroy
 .Ao Ar beName@snapshot Ac
 .Nm
 list
+.Nm
+rename
+.Ao Ar origBeName Ac
+.Ao Ar newBeName Ac
 .Sh DESCRIPTION
 The
 .Nm
 command is used to setup and interact with Boot Environments with ZFS.
 .Pp
 .Em Boot Environments
-allow you to upgrade your system, while preserving your old environment in a separate ZFS dataset.
+allows the system to be upgraded, while preserving the old system environment in a separate ZFS dataset.
 .Pp
 .Sh COMMANDS
 The following commands are supported by
@@ -54,7 +58,7 @@ The following commands are supported by
 .Bl -tag -width indent
 .It Ic activate Ar <beName>
 .Pp
-Activate the given 
+Activate the given
 .Ar beName
 for the next boot.
 .Pp
@@ -88,11 +92,18 @@ snapshot.
 .Pp
 Displays all boot environments.
 .Pp
+.It Ic rename Ao Ar origBeName Ac Ao Ar newBeName Ac
+.Pp
+Renames the given
+.Ar origBeName
+to the given
+.Ar newBeName
+.Pp
 .El
 .Sh EXAMPLES
 .Bl -bullet
 .It
-Perform a system upgrade in a 
+Perform a system upgrade in a
 .Xr jail 8
 .Pp
 Create a new boot environment called
@@ -105,8 +116,9 @@ Set mountpoint for new jail to
 .Pp
 .Dl zfs set mountpoint=/usr/jails/jailed zroot/ROOT/jailed
 .Pp
-Your current boot environment is now replicated into the jailed system.
-Startup the jail, login and perform the normal upgrade process. Once this is done, stop the jail and disable it in
+The currently active boot environment is now replicated into the jailed system and ready for upgrade.
+Startup the jail, login and perform the normal upgrade process.
+Once this is done, stop the jail and disable it in
 .Pa /etc/rc.conf.
 .Pp
 Now activate the boot environment for the next boot
@@ -118,7 +130,7 @@ Reboot into the new environment
 .Dl reboot
 .El
 .Sh HOWTO
-A HOWTO guide is posted at the FreeBSD forums: 
+A HOWTO guide is posted at the FreeBSD forums:
 .Bl -bullet
 .It
 .Ar http://forums.freebsd.org/showthread.php?t=31662
@@ -134,4 +146,4 @@ originally appeared in Solaris.
 .Sh AUTHORS
 .An Slawomir Wojciech Wojtczak (vermaden) Aq vermaden@interia.pl
 .An Bryan Drewery Aq bryan@shatow.net
-Wrote the initial manual page, mostly from forum post.
+wrote this manual page and contributed child dataset fixes
