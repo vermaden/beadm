@@ -40,6 +40,10 @@ destroy
 .Ao Ar beName@snapshot Ac
 .Nm
 list
+.Nm
+rename
+.Ao Ar origBeName Ac
+.Ao Ar newBeName Ac
 .Sh DESCRIPTION
 The
 .Nm
@@ -87,6 +91,13 @@ snapshot.
 .It Ic list
 .Pp
 Displays all boot environments.
+.Pp
+.It Ic rename Ao Ar origBeName Ac Ao Ar newBeName Ac
+.Pp
+Renames the given
+.Ar origBeName
+to the given
+.Ar newBeName
 .Pp
 .El
 .Sh EXAMPLES
