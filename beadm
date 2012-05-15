@@ -201,6 +201,10 @@ case ${1} in
     ;;
 
   (activate) # ----------------------------------------------------------------
+    if [ ${#} -ne 2 ]
+    then
+      __usage
+    fi
     __be_exist ${POOL}/ROOT/${2}
     if [ "${BOOTFS}" = "${POOL}/ROOT/${2}" ]
     then
@@ -273,6 +277,10 @@ EOF
     ;;
 
   (destroy) # ----------------------------------------------------------------
+    if [ ${#} -ne 2 ]
+    then
+      __usage
+    fi
     __be_exist ${POOL}/ROOT/${2}
     if [ "${BOOTFS}" = "${POOL}/ROOT/${2}" ]
     then
@@ -321,7 +329,16 @@ EOF
     ;;
 
   (rename) # ------------------------------------------------------------------
+    if [ ${#} -ne 2 ]
+    then
+      __usage
+    fi
     __be_exist ${POOL}/ROOT/${2}
+    if [ "${BOOTFS}" = "${POOL}/ROOT/${2}" ]
+    then
+      echo "ERROR: Renaming the active BE is not supported"
+      exit 1
+    fi
     if zfs list -H -o name ${POOL}/ROOT/${3} 2> /dev/null
     then
       echo "ERROR: Boot environment '${3}' already exists"
