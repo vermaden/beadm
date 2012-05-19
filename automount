@@ -100,9 +100,15 @@ EOF
   exit 0
 }
 
-[ "${1}" = "-h" -o "${1}" = "--help" -o ${#} -eq 0 -o ${#} -eq 1 ] && __usage
+if [ "${1}" = "-h" -o "${1}" = "--help" -o ${#} -eq 0 -o ${#} -eq 1 ]
+then
+  __usage
+fi
 
-[ -f /usr/local/etc/automount.conf ] && . /usr/local/etc/automount.conf
+if [ -f /usr/local/etc/automount.conf ]
+then
+  . /usr/local/etc/automount.conf
+fi
 
 : ${MNTPREFIX="/media"}               # mount prefix
 : ${LOG="/var/log/automount.log"}     # log file
@@ -116,25 +122,34 @@ EOF
 : ${USER="0"}                         # which user to use for popup
 : ${FM="0"}                           # which file manager to use
 
-[ "${USERUMOUNT}" = YES ] && chmod u+s /sbin/umount # WHEEL group member
+if [ "${USERUMOUNT}" = YES ]
+then
+  chmod u+s /sbin/umount # WHEEL group member
+  sysctl vfs.usermount=1 # allow USER to mount
+fi
 
 __create_mount_point() { # 1=DEV
   mkdir -p ${MNT}
-  [ "${USER}" = 0 ] || chown ${USER}:$( id -g -n ${USER} ) ${MNT}
+  if ! [ "${USER}" = 0 ]
+  then
+    chown ${USER}:$( id -g -n ${USER} ) ${MNT}
+  fi
 }
 
 __check_already_mounted() { # 1=MNT
-  mount | grep " ${1} " 1> /dev/null 2> /dev/null && {
+  if mount | grep " ${1} " 1> /dev/null 2> /dev/null
+  then
     __log "${DEV}:already mounted (ntfs)"
     exit 0
-  }
+  fi
 }
 
 __state_add() { # 1=DEV 2=PROVIDER 3=MNT
-  grep -E "${3}$" ${STATE} 1> /dev/null 2> /dev/null && {
+  if grep -E "${3}$" ${STATE} 1> /dev/null 2> /dev/null
+  then
     __log "${1}:duplicated '${STATE}'"
     exit 0
-  }
+  fi
   echo "${1} ${2} ${3}" >> ${STATE}
 }
 
@@ -144,8 +159,10 @@ __state_remove() { # 1=MNT
 }
 
 __remove_dir() { # 1=TARGET
-  [ "${REMOVEDIRS}" = YES ] \
-    && find "${1}" -type d -empty -maxdepth 1 -exec rm -r {} '+'
+  if [ "${REMOVEDIRS}" = YES ]
+  then
+    find "${1}" -type d -empty -maxdepth 1 -exec rm -r {} '+'
+  fi
 }
 
 __log() { # @=MESSAGE
@@ -159,66 +176,104 @@ case ${2} in
     ADD=0
     MNT="${MNTPREFIX}/${1}"
     __check_already_mounted ${MNT}
-    [ "${ATIME}" = NO ] && OPTS="noatime"
+    if [ "${ATIME}" = NO ]
+    then
+      OPTS="noatime"
+    fi
+    while ! head -c 1 ${DEV} 1> /dev/null 2> /dev/null
+    do
+      sleep 1
+    done
     case $( file -b -L -s ${DEV} | sed -E 's/label:\ \".*\"//g' ) in
       (*FAT*) # must be before NTFS section: newfs_msdos -O NTFS -L NTFS
         __create_mount_point ${DEV}
         fsck_msdosfs -y ${DEV}
-        mount_msdosfs -o large -D ${CODEPAGE} -L ${ENCODING} \
-                      -m 644 -M 755 ${DEV} ${MNT} && ADD=1
+        if mount_msdosfs -o large -D ${CODEPAGE} -L ${ENCODING} \
+                      -m 644 -M 755 ${DEV} ${MNT}
+        then
+          ADD=1
+        fi
         __log "${DEV}:mount (fat)"
         ;;
       (*NTFS*) # must be after FAT section: newfs_msdos -O NTFS -L NTFS
         __create_mount_point ${DEV}
-        which ntfs-3g 1> /dev/null 2> /dev/null && {
-          ntfs-3g -o ${OPTS} ${DEV} ${MNT} && ADD=1 # sysutils/fusefs-ntfs
-        } || {
-          [ "${USER}" = 0 ] || OPTS="-u ${USER} -g $( id -g -n ${USER} )"
-          mount_ntfs ${OPTS} -o noatime ${DEV} ${MNT} && ADD=1
-        }
+        if which ntfs-3g 1> /dev/null 2> /dev/null # sysutils/fusefs-ntfs
+        then
+          if ntfs-3g -o ${OPTS} ${DEV} ${MNT}
+          then
+            ADD=1
+          fi
+        else
+          if ! [ "${USER}" = 0 ]
+          then
+            OPTS="-u ${USER} -g $( id -g -n ${USER} )"
+          fi
+          if mount_ntfs ${OPTS} -o noatime ${DEV} ${MNT}
+          then
+            ADD=1
+          fi
+        fi
         __log "${DEV}:mount (ntfs)"
         ;;
       (*ext2*)
         __create_mount_point ${DEV}
         fsck.ext2 -y ${DEV}
-        mount -t ext2fs -o ${OPTS} ${DEV} ${MNT} && ADD=1
+        if mount -t ext2fs -o ${OPTS} ${DEV} ${MNT}
+        then
+          ADD=1
+        fi
         __log "${DEV}:mount (ext2)"
         ;;
       (*ext3*)
         __create_mount_point ${DEV}
         fsck.ext3 -y ${DEV}
-        mount -t ext2fs -o ${OPTS} ${DEV} ${MNT} && ADD=1
+        if mount -t ext2fs -o ${OPTS} ${DEV} ${MNT}
+        then
+          ADD=1
+        fi
         __log "${DEV}:mount (ext3)"
         ;;
       (*ext4*)
         __create_mount_point ${DEV}
         fsck.ext4 -y ${DEV}
-        ext4fuse ${DEV} ${MNT} && ADD=1 # sysutils/fusefs-ext4fuse
+        if ext4fuse ${DEV} ${MNT} # sysutils/fusefs-ext4fuse
+        then
+          ADD=1
+        fi
         __log "${DEV}:mount (ext4)"
         ;;
       (*Unix\ Fast\ File*)
         __create_mount_point ${DEV}
         fsck_ufs -C -y ${DEV}
-        mount -o ${OPTS} ${DEV} ${MNT} && ADD=1
+        if mount -o ${OPTS} ${DEV} ${MNT}
+        then
+          ADD=1
+        fi
         __log "${DEV}:mount (ufs)"
         ;;
       (*)
         case $( dd < ${DEV} count=1 2> /dev/null | strings | head -1 ) in
           (*EXFAT*)
             __create_mount_point ${DEV}
-            mount.exfat -o ${OPTS} ${DEV} ${MNT} && ADD=1 # sysutils/fusefs-exfat
+            if mount.exfat -o ${OPTS} ${DEV} ${MNT} # sysutils/fusefs-exfat
+            then
+              ADD=1
+            fi
             __log "${DEV}:mount (exfat)"
             ;;
         esac
         ;;
     esac
-    [ ${ADD} -eq 1 ] && {
+    if [ ${ADD} -eq 1 ]
+    then
       ADD=0
       PROVIDER=$( mount | grep -m 1 " ${MNT} " | awk '{printf $1}' )
       __state_add ${DEV} ${PROVIDER} ${MNT}
-      [ "${USER}" != 0 ] && [ "${FM}" != 0 ] \
-        && su - ${USER} -c "env DISPLAY=:0 ${FM} ${MNT} &"
-    }
+      if [ "${USER}" != 0 -a "${FM}" != 0 ]
+      then
+        su - ${USER} -c "env DISPLAY=:0 ${FM} ${MNT} &"
+      fi
+    fi
     ;;
 
   (detach)
@@ -227,7 +282,10 @@ case ${2} in
         do
           TARGET=$( mount | grep -E "^${PROVIDER} " | awk '{print $3}' )
           __state_remove ${MNT}
-          [ -z ${TARGET} ] && continue
+          if [ -z ${TARGET} ]
+          then
+            continue
+          fi
           ( # put entire umount and find/rm block into background
             umount -f ${TARGET}
             __remove_dir "${TARGET}"
@@ -247,7 +305,6 @@ esac
 # <INTEL SSDSA2M160G2GC 2CV102HD>    at scbus0 target 0 lun 0 (ada0,pass0)
 # <HTC Android Phone 0100>           at scbus4 target 0 lun 0 (pass1,da0)
 
-# camcontrol devlist | grep -E -o "<.*>" | tr ' ' '-' | tr -d '<>' 
+# camcontrol devlist | grep -E -o "<.*>" | tr ' ' '-' | tr -d '<>'
 # INTEL-SSDSA2M160G2GC-2CV102HD
 # HTC-Android-Phone-0100
-
