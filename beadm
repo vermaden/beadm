@@ -276,7 +276,7 @@ EOF
     echo "Activated successfully"
     ;;
 
-  (destroy) # ----------------------------------------------------------------
+  (destroy) # -----------------------------------------------------------------
     if [ ${#} -ne 2 ]
     then
       __usage
@@ -311,12 +311,12 @@ EOF
                   zfs promote ${I} 2> /dev/null
                 done
           fi
-          if ! [ "${ORIGINS}" = "-" ]
+          if [ "${ORIGINS}" != "-" ]
           then
             echo "${ORIGINS}" \
               | while read I
                 do
-                  zfs destroy -r ${I} 2> /dev/null
+                  zfs destroy -r ${I} 2> /dev/null || true
                 done
           fi
         fi
