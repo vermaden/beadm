@@ -28,7 +28,8 @@ PATH=${PATH}:/bin:/usr/bin:/sbin:/usr/sbin
 
 if [ $( uname -r | cut -d '.' -f1 ) -lt 8 ]
 then
-  echo "ERROR: beadm only works on FreeBSD 8.0 or later"
+  echo "ERROR: beadm works on FreeBSD 8.0 or later"
+  exit 1
 fi
 
 __usage() {
@@ -39,15 +40,15 @@ __usage() {
   echo "  subcommands:"
   echo
   echo "  ${NAME} activate beName"
-  echo "  ${NAME} create [-e nonActiveBe | beName@snapshot] beName"
+  echo "  ${NAME} create [-e nonActiveBe | -e beName@snapshot] beName"
   echo "  ${NAME} create beName@snapshot"
-  echo "  ${NAME} destroy beName"
-  echo "  ${NAME} destroy beName@snapshot"
+  echo "  ${NAME} destroy [-F] beName | beName@snapshot"
   echo "  ${NAME} list"
   echo "  ${NAME} rename origBeName newBeName"
   exit 1
 }
 
+# check if BE exists
 __be_exist() { # 1=DATASET
   if ! zfs list -H -o name ${1} 1> /dev/null 2> /dev/null
   then
@@ -56,10 +57,12 @@ __be_exist() { # 1=DATASET
   fi
 }
 
+# check if argument is a snapshot
 __be_snapshot() { # 1=DATASET/SNAPSHOT
   echo "${1}" | grep -q "@"
 }
 
+# create new BE
 __be_new() { # 1=SOURCE 2=TARGET
   local SOURCE=$( echo ${1} | cut -d '@' -f 1 )
   if __be_snapshot ${1}
@@ -132,23 +135,23 @@ BOOTFS=$( zpool list -H -o bootfs ${POOL} )
 case ${1} in
 
   (list) # --------------------------------------------------------------------
-    POOL_PREFIX="${POOL}/ROOT"
+    BENAME_STARTS_WITH="${POOL}/ROOT"
     LIST=$( zfs list -o name,used,mountpoint,creation -s creation -H -d 1 -r ${POOL}/ROOT | grep -E "^${POOL}/ROOT/" )
     WIDTH_CREATION=$( echo "${LIST}" | awk '{print $5}' | wc -L )
     WIDTH_NAME=$( echo "${LIST}" | awk '{print $1}' | wc -L )
-    WIDTH_NAME=$(( ${WIDTH_NAME} - ${#POOL_PREFIX} - 1 ))
+    WIDTH_NAME=$(( ${WIDTH_NAME} - ${#BENAME_STARTS_WITH} - 1 ))
     printf "%-${WIDTH_NAME}s %-6s %-10s %5s %6s %s\n" \
       BE Active Mountpoint Space Policy Created
     echo "${LIST}" \
-      | while read NAME USED MOUNTPOINT C R E A T
+      | while read NAME USED MOUNTPOINT Y m d H M
         do
           NAME=${NAME##*/}
           unset ACTIVE
-          if [ "${POOL_PREFIX}/${NAME}" = "${ROOTFS}" ]
+          if [ "${BENAME_STARTS_WITH}/${NAME}" = "${ROOTFS}" ]
           then
             ACTIVE="${ACTIVE}N"
             fi
-          if [ "${POOL_PREFIX}/${NAME}" = "${BOOTFS}" ]
+          if [ "${BENAME_STARTS_WITH}/${NAME}" = "${BOOTFS}" ]
           then
             ACTIVE="${ACTIVE}R"
           fi
@@ -162,7 +165,7 @@ case ${1} in
             (*)    MOUNT="-" ;;
           esac
           printf "%-10s %5s %-6s " ${MOUNT} ${USED} "static"
-          date -j -f "%a %b %d %H:%M %Y" "${C} ${R} ${E} ${A} ${T}" +"%Y-%m-%d %H:%M"
+          date -j -f "%a %b %d %H:%M %Y" "${Y} ${m} ${d} ${H} ${M}" +"%Y-%m-%d %H:%M"
         done
     ;;
 
@@ -174,7 +177,7 @@ case ${1} in
           __usage
         fi
         __be_exist ${POOL}/ROOT/${3}
-        if zfs list -H -o name ${POOL}/ROOT/${4} 2> /dev/null
+        if zfs list -H -o name ${POOL}/ROOT/${4} 1> /dev/null 2> /dev/null
         then
           echo "ERROR: Boot environment '${4}' already exists"
           exit 1
@@ -184,9 +187,9 @@ case ${1} in
       (2)
         if __be_snapshot ${2}
         then
-          if ! zfs snapshot -r ${POOL}/ROOT/${2} 2> /dev/null
+          if ! zfs snapshot -r ${POOL}/ROOT/${2} 1> /dev/null 2> /dev/null
           then
-            echo "ERROR: Cannot create '${2}' snapshot"
+            echo "ERROR: Cannot create '${2}' recursive snapshot"
             exit 1
           fi
           echo "Created successfully"
@@ -237,7 +240,7 @@ EOF
         else
           TMPMNT=${MOUNT}
         fi
-        cp /boot/zfs/zpool.cache ${TMPMNT}/boot/zfs/zpool.cache # 2> /dev/null
+        cp /boot/zfs/zpool.cache ${TMPMNT}/boot/zfs/zpool.cache
         LOADER_CONFIGS=${TMPMNT}/boot/loader.conf
         if [ -f ${TMPMNT}/boot/loader.conf.local ]
         then
@@ -250,24 +253,24 @@ EOF
           zfs set mountpoint=legacy ${POOL}/ROOT/${2}
         fi
       fi
-      if ! zpool set bootfs=${POOL}/ROOT/${2} ${POOL}
+      if ! zpool set bootfs=${POOL}/ROOT/${2} ${POOL} 2> /dev/null
       then
         echo "ERROR: Failed to activate '${POOL}/ROOT/${2}'"
         exit 1
       fi
     fi
-    # Disable mounting on all inactive datasets
+    # disable automatic mount on all inactive datasets
     zfs list -H -o name -r ${POOL}/ROOT \
       | grep -v "${POOL}/ROOT/${2}" \
       | while read I
         do
           zfs set canmount=noauto ${I}
         done
-    # Enable mounting for the active BE and promote it
+    # enable automatic mount for active BE and promote it
     zfs list -H -o name,origin -t filesystem -r ${POOL}/ROOT/${2} \
       | while read I ORIGIN
         do
-          zfs set canmount=on ${I} 2> /dev/null
+          zfs set canmount=on ${I}
           if [ ${ORIGIN} != "-" ]
           then
             zfs promote ${I}
@@ -277,33 +280,51 @@ EOF
     ;;
 
   (destroy) # -----------------------------------------------------------------
-    if [ ${#} -ne 2 ]
-    then
-      __usage
-    fi
-    __be_exist ${POOL}/ROOT/${2}
-    if [ "${BOOTFS}" = "${POOL}/ROOT/${2}" ]
+    case ${#} in
+      (2)
+        echo "Are you sure you want to destroy '${2}'?"
+        echo -n "This action cannot be undone (y/[n]): "
+        read CHOICE
+        DESTROY=${2}
+        ;;
+      (3)
+        if [ "${2}" != "-F" ]
+        then
+          __usage
+        fi
+        CHOICE=Y
+        DESTROY=${3}
+        ;;
+      (*)
+        __usage
+        ;;
+    esac
+    __be_exist ${POOL}/ROOT/${DESTROY}
+    if [ "${BOOTFS}" = "${POOL}/ROOT/${DESTROY}" ]
     then
       echo "ERROR: '${POOL}/ROOT/${2}' is current active boot environment"
       exit 1
     fi
-    echo "Are you sure you want to destroy '${2}'?"
-    echo -n "This action cannot be undone (y/[n]): "
-    read CHOICE
     case ${CHOICE} in
       (Y|y|[Yy][Ee][Ss])
-        if __be_snapshot ${POOL}/ROOT/${2}
+        if __be_snapshot ${POOL}/ROOT/${DESTROY}
         then
-          if ! zfs destroy -r ${POOL}/ROOT/${2} 1> /dev/null 2> /dev/null
+          if ! zfs destroy -r ${POOL}/ROOT/${DESTROY} 1> /dev/null 2> /dev/null
           then
             echo "ERROR: Snapshot '${2}' is origin for other boot environment(s)"
             exit 1
           fi
         else
-          ORIGINS=$( zfs list -r -H -o origin ${POOL}/ROOT/${2} )
-          if ! zfs destroy ${POOL}/ROOT/${2} 1> /dev/null 2> /dev/null
+          zfs list -r -H -o name ${POOL}/ROOT/${DESTROY} \
+            | sort -n -r \
+            | while read DATASET
+              do
+                zfs umount ${DATASET} 1> /dev/null 2> /dev/null || true
+              done
+          ORIGINS=$( zfs list -r -H -o origin ${POOL}/ROOT/${DESTROY} )
+          if ! zfs destroy ${POOL}/ROOT/${DESTROY} 1> /dev/null 2> /dev/null
           then
-            zfs destroy -r ${POOL}/ROOT/${2} 2>&1 \
+            zfs destroy -r ${POOL}/ROOT/${DESTROY} 2>&1 \
               | grep "${POOL}/ROOT/" \
               | grep -v "@" \
               | while read I
@@ -323,7 +344,7 @@ EOF
         echo "Destroyed successfully"
         ;;
       (*)
-        echo "'${2}' has not been destroyed"
+        echo "'${DESTROY}' has not been destroyed"
         ;;
     esac
     ;;
