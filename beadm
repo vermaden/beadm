@@ -46,7 +46,7 @@ __usage() {
   echo "  ${NAME} list"
   echo "  ${NAME} mount"
   echo "  ${NAME} mount beName [mountpoint]"
-  echo "  ${NAME} umount [-f] beName"
+  echo "  ${NAME} umount | unmount [-f] beName"
   echo "  ${NAME} rename origBeName newBeName"
   exit 1
 }
@@ -447,7 +447,7 @@ EOF
     fi
     ;;
 
-  (umount) # ------------------------------------------------------------------
+  (umount|unmount) # ------------------------------------------------------------------
     COMPLETE=1
     if [ ${#} -eq 2 ]
     then
