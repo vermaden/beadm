@@ -415,7 +415,7 @@ EOF
       exit 1
     fi
     zfs list -H -o name,mountpoint -r ${POOL}/ROOT/${BE} \
-      | grep -v " legacy" \
+      | grep -v "legacy$" \
       | sort -n \
       | grep -E "^${POOL}/ROOT/${BE}/" \
       | while read FS MOUNTPOINT
