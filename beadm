@@ -44,6 +44,9 @@ __usage() {
   echo "  ${NAME} create beName@snapshot"
   echo "  ${NAME} destroy [-F] beName | beName@snapshot"
   echo "  ${NAME} list"
+  echo "  ${NAME} mount [-p]"
+  echo "  ${NAME} mount beName [mountpoint]"
+  echo "  ${NAME} umount [-f] beName"
   echo "  ${NAME} rename origBeName newBeName"
   exit 1
 }
@@ -350,7 +353,7 @@ EOF
     ;;
 
   (rename) # ------------------------------------------------------------------
-    if [ ${#} -ne 2 ]
+    if [ ${#} -ne 3 ]
     then
       __usage
     fi
@@ -369,7 +372,118 @@ EOF
     echo "Renamed successfully"
     ;;
 
+  (mount) # -------------------------------------------------------------------
+    COMPLETE=1
+    if [ ${#} -eq 1 -o ${#} -eq 2 ]
+    then
+      if [ ${2} ]
+      then
+        if [ "${2}" = "-p" ]
+        then
+          OPTS="-p"
+        else
+          BE=${2}
+        fi
+      fi
+      if ! [ ${BE} ]
+      then
+        mount ${OPTS} | grep -E "^${POOL}/ROOT/"
+        exit 0
+      fi
+    elif [ ${#} -eq 3 ]
+    then
+      BE=${2}
+      TARGET=${3}
+    else
+      __usage
+    fi
+    __be_exist "${POOL}/ROOT/${BE}"
+    if mount | grep -E "^${POOL}/ROOT/${BE} " 1> /dev/null 2> /dev/null
+    then
+      MNT=$( mount | grep -E "^${POOL}/ROOT/${BE} " | awk '{print $3}' )
+      echo "The '${BE}' is already mounted at '${MNT}'"
+      exit 1
+    fi
+    if ! [ ${3} ]
+    then
+      TARGET="/tmp/tmp.$( tr -cd 'A-Za-z' < /dev/random|head -c 6 )"
+      mkdir -p ${TARGET}
+    fi
+    if ! mount -t zfs ${POOL}/ROOT/${BE} ${TARGET}
+    then
+      echo "ERROR: Cannot mount '${POOL}/ROOT/${BE}' at '${TARGET}' mountpoint"
+      exit 1
+    fi
+    zfs list -H -o name,mountpoint -r ${POOL}/ROOT/${BE} \
+      | grep -v " legacy" \
+      | sort -n \
+      | grep -E "^${POOL}/ROOT/${BE}/" \
+      | while read FS MOUNTPOINT
+        do
+          if ! mkdir -p ${TARGET}${MOUNTPOINT} 1> /dev/null 2> /dev/null
+          then
+            echo "ERROR: Cannot create '${TARGET}${MOUNTPOINT}' mountpoint"
+            exit 1
+          fi
+          if ! mount -t zfs ${FS} ${TARGET}${MOUNTPOINT} 1> /dev/null 2> /dev/null
+          then
+            echo "ERROR: Cannot mount '${FS}' at '${TARGET}${MOUNTPOINT}' mountpoint"
+            COMPLETE=0
+          fi
+        done
+    if [ ${COMPLETE} -eq 0 ]
+    then
+      echo "Partially mounted"
+    else
+      echo "Mounted successfully on '${TARGET}'"
+    fi
+    ;;
+
+  (umount) # ------------------------------------------------------------------
+    COMPLETE=1
+    if [ ${#} -eq 2 ]
+    then
+      BE=${2}
+    elif [ ${#} -eq 3 ]
+    then
+      BE=${3}
+      if [ "${2}" = "-f" ]
+      then
+        OPTS="-f"
+      else
+        __usage
+      fi
+    else
+      __usage
+    fi
+    __be_exist "$POOL/ROOT/$BE"
+    if ! mount | grep -E "^${POOL}/ROOT/${BE} " 1> /dev/null 2> /dev/null
+    then
+      echo "The '${BE}' is not mounted"
+      exit 1
+    fi
+    mount \
+      | grep "^${POOL}/ROOT/${BE}" \
+      | awk '{print $1}' \
+      | sort -n -r \
+      | while read FS
+        do
+          if ! umount ${OPTS} ${FS} 1> /dev/null 2> /dev/null
+          then
+            echo "ERROR: Cannot umount '${FS}' dataset"
+            COMPLETE=0
+          fi
+        done
+    if [ ${COMPLETE} -eq 0 ]
+    then
+      echo "Partially unmounted"
+    else
+      echo "Unmounted successfully"
+    fi
+    ;;
+
   (*) # -----------------------------------------------------------------------
     __usage
     ;;
+
 esac
