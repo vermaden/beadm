@@ -44,7 +44,7 @@ __usage() {
   echo "  ${NAME} create beName@snapshot"
   echo "  ${NAME} destroy [-F] beName | beName@snapshot"
   echo "  ${NAME} list"
-  echo "  ${NAME} mount [-p]"
+  echo "  ${NAME} mount"
   echo "  ${NAME} mount beName [mountpoint]"
   echo "  ${NAME} umount [-f] beName"
   echo "  ${NAME} rename origBeName newBeName"
@@ -378,16 +378,24 @@ EOF
     then
       if [ ${2} ]
       then
-        if [ "${2}" = "-p" ]
-        then
-          OPTS="-p"
-        else
-          BE=${2}
-        fi
-      fi
-      if ! [ ${BE} ]
-      then
-        mount ${OPTS} | grep -E "^${POOL}/ROOT/"
+        BE=${2}
+      else
+        zfs list -H -o name -d 1 -r ${POOL}/ROOT \
+          | grep "${POOL}/ROOT/" \
+          | while read NAME
+            do
+              NAME=${NAME##*/}
+              if mount | grep -E "^${POOL}/ROOT/${NAME}" 1> /dev/null 2> /dev/null
+              then
+                echo ${NAME}
+                mount \
+                  | grep -E "^${POOL}/ROOT/${NAME}" \
+                  | awk '{print $1 " " $3}' \
+                  | column -t \
+                  | awk '{print "  " $0}'
+                echo
+              fi
+            done
         exit 0
       fi
     elif [ ${#} -eq 3 ]
