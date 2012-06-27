@@ -414,7 +414,7 @@ EOF
     fi
     if ! [ ${3} ]
     then
-      TARGET=$(mktemp /tmp/tmp.XXXXXX)
+      TARGET=$( mktemp /tmp/tmp.XXXXXX )
       mkdir -p ${TARGET}
     fi
     if ! mount -t zfs ${POOL}/ROOT/${BE} ${TARGET}
