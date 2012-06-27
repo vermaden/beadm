@@ -414,7 +414,7 @@ EOF
     fi
     if ! [ ${3} ]
     then
-      TARGET="/tmp/tmp.$( tr -cd 'A-Za-z' < /dev/random|head -c 6 )"
+      TARGET=$(mktemp /tmp/tmp.XXXXXX)
       mkdir -p ${TARGET}
     fi
     if ! mount -t zfs ${POOL}/ROOT/${BE} ${TARGET}
