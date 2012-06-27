@@ -15,7 +15,7 @@
 .\"     @(#)beadm.1
 .\" $FreeBSD$
 .\"
-.Dd April 26, 2012
+.Dd June 26, 2012
 .Dt BEADM 1
 .Os FreeBSD
 .Sh NAME
@@ -27,23 +27,31 @@ activate
 .Ao Ar beName Ac
 .Nm
 create
-.Op Fl e Ar nonActiveBe | Ar beName@snapshot
+.Op Fl e Ar nonActiveBe | Fl e Ar beName@snapshot
 .Ao Ar beName Ac
 .Nm
 create
 .Ao Ar beName@snapshot Ac
 .Nm
 destroy
-.Ao Ar beName Ac
-.Nm
-destroy
-.Ao Ar beName@snapshot Ac
+.Op Fl F
+.Ao Ar beName | beName@snapshot Ac
 .Nm
 list
+.Nm
+mount
+.Nm
+mount
+.Ao Ar beName Ac
+.Op mountpoint
 .Nm
 rename
 .Ao Ar origBeName Ac
 .Ao Ar newBeName Ac
+.Nm
+{ umount | unmount }
+.Op Fl f
+.Ao Ar beName Ac
 .Sh DESCRIPTION
 The
 .Nm
@@ -63,7 +71,7 @@ Activate the given
 for the next boot.
 .Pp
 .It Ic create
-.Op Fl e Ar nonActiveBe | Ar beName@snapshot
+.Op Fl e Ar nonActiveBe | Fl e Ar beName@snapshot
 .Ao Ar beName Ac
 .Pp
 Creates a new boot environment named
@@ -77,20 +85,35 @@ If the -e param is specified, the new environment will be cloned from the given
 Creates a snapshot of the existing boot environment named
 .Ar beName .
 .Pp
-.It Ic destroy Ao Ar beName Ac
+.It
+.Ic destroy Op Fl F
+.Ao Ar beName | beName@snapshot Ac
 .Pp
 Destroys the given
 .Ar beName
-boot environment.
-.It Ic destroy Ao Ar beName@snapshot Ac
-.Pp
-Destroys the given
+boot environment or
 .Ar beName@snapshot
 snapshot.
+Specifying
+.Fl F
+will automatically unmount without confirmation.
 .Pp
 .It Ic list
 .Pp
 Displays all boot environments.
+.PP
+.It Ic mount
+.Pp
+List all mounted datasets for the current boot environment.
+.Pp
+.It Ic mount
+.Ao Ar beName Ac
+.Op mountpoint
+.Pp
+Temporarily mount the boot environment.
+Mount at the specified
+.Ar mountpoint
+if provided.
 .Pp
 .It Ic rename Ao Ar origBeName Ac Ao Ar newBeName Ac
 .Pp
@@ -98,6 +121,15 @@ Renames the given nonactive
 .Ar origBeName
 to the given
 .Ar newBeName
+.Pp
+.It Ic umount
+.Op Fl f
+.Ao Ar beName Ac
+.Pp
+Unmount the given boot environment, if it is mounted.
+Specifying
+.Fl f
+will force the unmount if busy.
 .Pp
 .El
 .Sh EXAMPLES
