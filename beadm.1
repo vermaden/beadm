@@ -48,6 +48,10 @@ mount
 rename
 .Ao Ar origBeName Ac
 .Ao Ar newBeName Ac
+.Nm
+{ umount | unmount }
+.Op Fl f
+.Ao Ar beName Ac
 .Sh DESCRIPTION
 The
 .Nm
@@ -117,6 +121,15 @@ Renames the given nonactive
 .Ar origBeName
 to the given
 .Ar newBeName
+.Pp
+.It Ic umount
+.Op Fl f
+.Ao Ar beName Ac
+.Pp
+Unmount the given boot environment, if it is mounted.
+Specifying
+.Fl f
+will force the unmount if busy.
 .Pp
 .El
 .Sh EXAMPLES
