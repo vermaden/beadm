@@ -15,7 +15,7 @@
 .\"     @(#)beadm.1
 .\" $FreeBSD$
 .\"
-.Dd April 26, 2012
+.Dd June 26, 2012
 .Dt BEADM 1
 .Os FreeBSD
 .Sh NAME
@@ -34,10 +34,8 @@ create
 .Ao Ar beName@snapshot Ac
 .Nm
 destroy
-.Ao Ar beName Ac
-.Nm
-destroy
-.Ao Ar beName@snapshot Ac
+.Op Fl F
+.Ao Ar beName | beName@snapshot Ac
 .Nm
 list
 .Nm
@@ -77,16 +75,18 @@ If the -e param is specified, the new environment will be cloned from the given
 Creates a snapshot of the existing boot environment named
 .Ar beName .
 .Pp
-.It Ic destroy Ao Ar beName Ac
+.It
+.Ic destroy Op Fl F
+.Ao Ar beName | beName@snapshot Ac
 .Pp
 Destroys the given
 .Ar beName
-boot environment.
-.It Ic destroy Ao Ar beName@snapshot Ac
-.Pp
-Destroys the given
+boot environment or
 .Ar beName@snapshot
 snapshot.
+Specifying
+.Fl F
+will automatically unmount without confirmation.
 .Pp
 .It Ic list
 .Pp
