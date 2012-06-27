@@ -39,6 +39,12 @@ destroy
 .Nm
 list
 .Nm
+mount
+.Nm
+mount
+.Ao Ar beName Ac
+.Op mountpoint
+.Nm
 rename
 .Ao Ar origBeName Ac
 .Ao Ar newBeName Ac
@@ -91,6 +97,19 @@ will automatically unmount without confirmation.
 .It Ic list
 .Pp
 Displays all boot environments.
+.PP
+.It Ic mount
+.Pp
+List all mounted datasets for the current boot environment.
+.Pp
+.It Ic mount
+.Ao Ar beName Ac
+.Op mountpoint
+.Pp
+Temporarily mount the boot environment.
+Mount at the specified
+.Ar mountpoint
+if provided.
 .Pp
 .It Ic rename Ao Ar origBeName Ac Ao Ar newBeName Ac
 .Pp
