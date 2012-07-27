@@ -217,6 +217,16 @@ case ${1} in
       echo "Already activated"
       exit 0
     else
+      if mount | grep -E "^${POOL}/ROOT/${2} " 1> /dev/null 2> /dev/null
+      then
+        MNT=$( mount | grep -E "^${POOL}/ROOT/${2} " | awk '{print $3}' )
+        if [ "${MNT}" != "/" ]
+        then
+          echo "ERROR: The '${2}' is mounted at '${MNT}'"
+          echo "ERROR: Cannot activate mounted boot environment"
+          exit 1
+        fi
+      fi
       if [ "${ROOTFS}" != "${POOL}/ROOT/${2}" ]
       then
         TMPMNT="/tmp/BE"
@@ -414,7 +424,7 @@ EOF
     fi
     if ! [ ${3} ]
     then
-      TARGET=$( mktemp /tmp/tmp.XXXXXX )
+      TARGET=$( mktemp -d /tmp/tmp.XXXXXX )
       mkdir -p ${TARGET}
     fi
     if ! mount -t zfs ${POOL}/ROOT/${BE} ${TARGET}
@@ -422,12 +432,27 @@ EOF
       echo "ERROR: Cannot mount '${POOL}/ROOT/${BE}' at '${TARGET}' mountpoint"
       exit 1
     fi
+    PREFIX=$( echo ${POOL}/ROOT/${BE}/ | sed 's/\//\\\//g' )
     zfs list -H -o name,mountpoint -r ${POOL}/ROOT/${BE} \
       | grep -v "legacy$" \
       | sort -n \
       | grep -E "^${POOL}/ROOT/${BE}/" \
       | while read FS MOUNTPOINT
         do
+          if [ "{FS}" != "${POOL}/ROOT/${BE}" ]
+          then
+            INHERIT=$( zfs get -H -o source mountpoint ${FS} )
+            if [ "${INHERIT}" = "local" ]
+            then
+              if [ "${MOUNTPOINT}" = "legacy" ]
+              then
+                continue
+              else
+                MOUNTPOINT=$( echo "${FS}" | sed s/"${PREFIX}"//g )
+                MOUNTPOINT="/${MOUNTPOINT}"
+              fi
+            fi
+          fi
           if ! mkdir -p ${TARGET}${MOUNTPOINT} 1> /dev/null 2> /dev/null
           then
             echo "ERROR: Cannot create '${TARGET}${MOUNTPOINT}' mountpoint"
