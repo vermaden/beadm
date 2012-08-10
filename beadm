@@ -103,7 +103,7 @@ __be_new() { # 1=SOURCE 2=TARGET
         do
           local OPTS="-o ${PROPERTY}=${VALUE} ${OPTS}"
         done << EOF
-$( zfs get -o name,property,value -s local -H all ${FS} | grep -v -E "(canmount)" )
+$( zfs get -o name,property,value -s local,received -H all ${FS} | grep -v -E "(canmount)" )
 EOF
         DATASET=$( echo ${FS} | awk '{print $1}' | sed -E s/"^${POOL}\/ROOT\/${SOURCE##*/}"/"${POOL}\/ROOT\/${2##*/}"/g )
         if [ "${OPTS}" = "-o = " ]
