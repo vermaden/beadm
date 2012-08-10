@@ -86,9 +86,12 @@ __be_new() { # 1=SOURCE 2=TARGET
       echo "ERROR: Snapshot '${1}@${2##*/}' already exists"
       exit 1
     fi
-    if ! zfs snapshot -r ${1}@${2##*/} 1> /dev/null 2> /dev/null
+### if ! zfs snapshot -r ${1}@${2##*/} 1> /dev/null 2> /dev/null        # old #
+    FMT=$( date "+%Y-%m-%d-%H:%M:%S" )                                  # NEW #
+    if ! zfs snapshot -r ${1}@${FMT} 1> /dev/null 2> /dev/null          # NEW #
     then
-      echo "ERROR: Cannot create snapshot '${1}@${2##*/}'"
+##### echo "ERROR: Cannot create snapshot '${1}@${2##*/}'"              # old #
+      echo "ERROR: Cannot create snapshot '${1}@${FMT}'"                # NEW #
       exit 1
     fi
   fi
@@ -107,11 +110,12 @@ EOF
         then
           local OPTS=""
         fi
-        if  __be_snapshot ${1}
+        if __be_snapshot ${1}
         then
           zfs clone -o canmount=off ${OPTS} ${FS}@${1##*@} ${DATASET}
         else
-          zfs clone -o canmount=off ${OPTS} ${FS}@${2##*/} ${DATASET}
+######### zfs clone -o canmount=off ${OPTS} ${FS}@${2##*/} ${DATASET}   # old #
+          zfs clone -o canmount=off ${OPTS} ${FS}@${FMT} ${DATASET}     # NEW #
         fi
       done
   echo "Created successfully"
@@ -138,16 +142,21 @@ BOOTFS=$( zpool list -H -o bootfs ${POOL} )
 case ${1} in
 
   (list) # --------------------------------------------------------------------
+    if [ ${#} -ne 1 ]
+    then
+      __usage
+    fi
     BENAME_STARTS_WITH="${POOL}/ROOT"
-    LIST=$( zfs list -o name,used,mountpoint,creation -s creation -H -d 1 -r ${POOL}/ROOT | grep -E "^${POOL}/ROOT/" )
+    LIST=$( zfs list -o name,mountpoint,creation -s creation -H -d 1 -r ${POOL}/ROOT | grep -E "^${POOL}/ROOT/" )
     WIDTH_CREATION=$( echo "${LIST}" | awk '{print $5}' | wc -L )
     WIDTH_NAME=$( echo "${LIST}" | awk '{print $1}' | wc -L )
     WIDTH_NAME=$(( ${WIDTH_NAME} - ${#BENAME_STARTS_WITH} - 1 ))
-    printf "%-${WIDTH_NAME}s %-6s %-10s %5s %6s %s\n" \
+    printf "%-${WIDTH_NAME}s %-6s %-10s %6s %6s %s\n" \
       BE Active Mountpoint Space Policy Created
     echo "${LIST}" \
-      | while read NAME USED MOUNTPOINT Y m d H M
+      | while read NAME MOUNTPOINT Y m d H M
         do
+          TOTAL=0
           NAME=${NAME##*/}
           unset ACTIVE
           if [ "${BENAME_STARTS_WITH}/${NAME}" = "${ROOTFS}" ]
@@ -167,9 +176,71 @@ case ${1} in
             (N|NR) MOUNT="/" ;;
             (*)    MOUNT="-" ;;
           esac
-          printf "%-10s %5s %-6s " ${MOUNT} ${USED} "static"
+          while read I
+          do
+            USED=$( zfs list -H -o used ${I} )
+            if [ ${USED} = "0" ]
+            then
+              continue
+            fi
+            case "${USED}" in
+              (*K) SIZE=$( echo "${USED} * 1000                  " | tr -c -d '\[0-9]* .\n' | bc -l ) ;;
+              (*M) SIZE=$( echo "${USED} * 1000000               " | tr -c -d '\[0-9]* .\n' | bc -l ) ;;
+              (*G) SIZE=$( echo "${USED} * 1000000000            " | tr -c -d '\[0-9]* .\n' | bc -l ) ;;
+              (*T) SIZE=$( echo "${USED} * 1000000000000         " | tr -c -d '\[0-9]* .\n' | bc -l ) ;;
+              (*P) SIZE=$( echo "${USED} * 1000000000000000      " | tr -c -d '\[0-9]* .\n' | bc -l ) ;;
+              (*E) SIZE=$( echo "${USED} * 1000000000000000000   " | tr -c -d '\[0-9]* .\n' | bc -l ) ;;
+              (*Z) SIZE=$( echo "${USED} * 1000000000000000000000" | tr -c -d '\[0-9]* .\n' | bc -l ) ;;
+              (*)  SIZE="${USED}" ;;
+            esac
+            TOTAL=$( echo "${SIZE} + ${TOTAL}" | bc -l )
+          done << EOF
+$( zfs list -H -t all -o name,origin -r "${BENAME_STARTS_WITH}/${NAME}" | tr '\t' '\n' | grep -v -E "^-$" )
+EOF
+          RANGE=$( echo ${TOTAL} | cut -d . -f 1 )
+          case $( echo "${RANGE}" | wc -c | tr -c -d '[0-9]\n' ) in
+            (5|6|7)       TOTAL="$( echo ${TOTAL} / 1000                   | bc -l | grep -o -E "[0-9]*\.[0-9]{1}" )K" ;;
+            (8|9|10)      TOTAL="$( echo ${TOTAL} / 1000000                | bc -l | grep -o -E "[0-9]*\.[0-9]{1}" )M" ;;
+            (11|12|13)    TOTAL="$( echo ${TOTAL} / 1000000000             | bc -l | grep -o -E "[0-9]*\.[0-9]{1}" )G" ;;
+            (14|15|16)    TOTAL="$( echo ${TOTAL} / 1000000000000          | bc -l | grep -o -E "[0-9]*\.[0-9]{1}" )T" ;;
+            (17|18|19)    TOTAL="$( echo ${TOTAL} / 1000000000000000       | bc -l | grep -o -E "[0-9]*\.[0-9]{1}" )P" ;;
+            (20|21|22)    TOTAL="$( echo ${TOTAL} / 1000000000000000000    | bc -l | grep -o -E "[0-9]*\.[0-9]{1}" )E" ;;
+            (23|24|25)    TOTAL="$( echo ${TOTAL} / 1000000000000000000000 | bc -l | grep -o -E "[0-9]*\.[0-9]{1}" )Z" ;;
+          esac
+          printf "%-10s %6s %-6s " ${MOUNT} ${TOTAL} "static"
           date -j -f "%a %b %d %H:%M %Y" "${Y} ${m} ${d} ${H} ${M}" +"%Y-%m-%d %H:%M"
         done
+####### LIST=$( zfs list -o name,used,mountpoint,creation -s creation -H -d 1 -r ${POOL}/ROOT | grep -E "^${POOL}/ROOT/" )
+####### WIDTH_CREATION=$( echo "${LIST}" | awk '{print $5}' | wc -L )
+####### WIDTH_NAME=$( echo "${LIST}" | awk '{print $1}' | wc -L )
+####### WIDTH_NAME=$(( ${WIDTH_NAME} - ${#BENAME_STARTS_WITH} - 1 ))
+####### printf "%-${WIDTH_NAME}s %-6s %-10s %5s %6s %s\n" \
+#######   BE Active Mountpoint Space Policy Created
+####### echo "${LIST}" \
+#######   | while read NAME USED MOUNTPOINT Y m d H M
+#######     do
+#######       NAME=${NAME##*/}
+#######       unset ACTIVE
+#######       if [ "${BENAME_STARTS_WITH}/${NAME}" = "${ROOTFS}" ]
+#######       then
+#######         ACTIVE="${ACTIVE}N"
+#######         fi
+#######       if [ "${BENAME_STARTS_WITH}/${NAME}" = "${BOOTFS}" ]
+#######       then
+#######         ACTIVE="${ACTIVE}R"
+#######       fi
+#######       if [ -z "${ACTIVE}" ]
+#######       then
+#######         ACTIVE="-"
+#######       fi
+#######       printf "%-${WIDTH_NAME}s %-6s " ${NAME} ${ACTIVE}
+#######       case ${ACTIVE} in
+#######         (N|NR) MOUNT="/" ;;
+#######         (*)    MOUNT="-" ;;
+#######       esac
+#######       printf "%-10s %5s %-6s " ${MOUNT} ${USED} "static"
+#######       date -j -f "%a %b %d %H:%M %Y" "${Y} ${m} ${d} ${H} ${M}" +"%Y-%m-%d %H:%M"
+#######     done
     ;;
 
   (create) # ------------------------------------------------------------------
@@ -320,39 +391,75 @@ EOF
     fi
     case ${CHOICE} in
       (Y|y|[Yy][Ee][Ss])
+        # delete snapshot or delete boot environment
         if __be_snapshot ${POOL}/ROOT/${DESTROY}
         then
+          # destroy desired snapshot
           if ! zfs destroy -r ${POOL}/ROOT/${DESTROY} 1> /dev/null 2> /dev/null
           then
             echo "ERROR: Snapshot '${2}' is origin for other boot environment(s)"
             exit 1
           fi
         else
-          zfs list -r -H -o name ${POOL}/ROOT/${DESTROY} \
-            | sort -n -r \
-            | while read DATASET
+          # promote clones dependent on snapshots used by destroyed boot environment
+          zfs list -H -t all -o name,origin \
+            | while read NAME ORIGIN
               do
-                zfs umount ${DATASET} 1> /dev/null 2> /dev/null || true
+                if echo "${ORIGIN}" | grep -q -E "${POOL}/ROOT/${DESTROY}(/.*@|@)" 2> /dev/null
+                then
+                  zfs promote ${NAME}
+                fi
               done
-          ORIGINS=$( zfs list -r -H -o origin ${POOL}/ROOT/${DESTROY} )
-          if ! zfs destroy ${POOL}/ROOT/${DESTROY} 1> /dev/null 2> /dev/null
-          then
-            zfs destroy -r ${POOL}/ROOT/${DESTROY} 2>&1 \
-              | grep "${POOL}/ROOT/" \
-              | grep -v "@" \
-              | while read I
-                do
-                  zfs promote ${I} 2> /dev/null
-                done
-          fi
-          if [ "${ORIGINS}" != "-" ]
-          then
-            echo "${ORIGINS}" \
-              | while read I
-                do
-                  zfs destroy -r ${I} 2> /dev/null || true
-                done
-          fi
+          # get origins used by destroyed boot environment
+          ORIGINS=$( zfs list -H -t all -o origin -r ${POOL}/ROOT/${DESTROY} )
+          # destroy boot environment
+          zfs destroy -r ${POOL}/ROOT/${DESTROY}
+          # destroy origins used by destroyed boot environment
+          echo "${ORIGINS}" \
+            | while read I
+              do
+                zfs destroy ${I}
+              done
+############## # destroy desired boot environment
+############## zfs list -r -H -o name ${POOL}/ROOT/${DESTROY} \
+##############   | sort -n -r \
+##############   | while read DATASET
+##############     do
+##############       zfs umount ${DATASET} 1> /dev/null 2> /dev/null || true
+##############     done
+############## # get origins that needs to be deleted
+############## ORIGINS=$( zfs list -r -H -o origin ${POOL}/ROOT/${DESTROY} )
+############## # promote dependent clones
+############## zfs list -H -o name,origin \
+##############   | awk -v destroy=${POOL}/ROOT/${DESTROY} '$2 ~ destroy {print $1}' \
+##############   | sort -r \
+##############   | while read I
+##############     do
+##############       echo PROMOTE 1: $I
+##############       zfs promote ${I} 2> /dev/null
+##############     done
+############## # destroy desired boot environment
+############## if ! zfs destroy ${POOL}/ROOT/${DESTROY} 1> /dev/null 2> /dev/null
+############## then
+##############   # promote dependent clones when needed
+##############   zfs destroy -r ${POOL}/ROOT/${DESTROY} 2>&1 \
+##############     | grep "${POOL}/ROOT/" \
+##############     | grep -v "@" \
+##############     | while read I
+##############       do
+##############         echo PROMOTE 2: $I
+##############         zfs promote ${I} 2> /dev/null
+##############       done
+############## fi
+############## # destroy origins that needs to be deleted
+############## if [ "${ORIGINS}" != "-" ]
+############## then
+##############   echo "${ORIGINS}" \
+##############     | while read I
+##############       do
+##############         zfs destroy -r ${I} 2> /dev/null || true
+##############       done
+############## fi
         fi
         echo "Destroyed successfully"
         ;;
