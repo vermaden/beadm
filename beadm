@@ -418,7 +418,10 @@ EOF
           echo "${ORIGINS}" \
             | while read I
               do
-                zfs destroy ${I}
+                if [ "${I}" != "-" ]
+                then
+                  zfs destroy ${I}
+                fi
               done
 ############## # destroy desired boot environment
 ############## zfs list -r -H -o name ${POOL}/ROOT/${DESTROY} \
