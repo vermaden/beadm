@@ -180,34 +180,29 @@ case ${1} in
             USED_ALL=$( zfs list -H -t all -o name,used )
             while read I
             do
-              USED=$( echo "${USED_ALL}" | grep -m 1 -E "^${I}" | awk '{print $2}' )
-              if [ ${USED} = "0" ]
-              then
-                continue
-              fi
+              USED=$( echo "${USED_ALL}" | grep -m 1 "^${I}" | awk '{print $2}' )
               case "${USED}" in
-                (*K) USED=$( echo "${USED} * 10" | sed s/K// | bc | cut -d '.' -f 1 ); USED=$(( ${USED} * 100                )) ;;
-                (*M) USED=$( echo "${USED} * 10" | sed s/M// | bc | cut -d '.' -f 1 ); USED=$(( ${USED} * 100000             )) ;;
-                (*G) USED=$( echo "${USED} * 10" | sed s/G// | bc | cut -d '.' -f 1 ); USED=$(( ${USED} * 100000000          )) ;;
-                (*T) USED=$( echo "${USED} * 10" | sed s/T// | bc | cut -d '.' -f 1 ); USED=$(( ${USED} * 100000000000       )) ;;
-                (*P) USED=$( echo "${USED} * 10" | sed s/P// | bc | cut -d '.' -f 1 ); USED=$(( ${USED} * 100000000000000    )) ;;
-                (*E) USED=$( echo "${USED} * 10" | sed s/E// | bc | cut -d '.' -f 1 ); USED=$(( ${USED} * 100000000000000000 )) ;;
-                # 100000000000000000 is maximum that is supported by $(( ))
-                (*Z) USED=$( echo "${USED} * 10000000000000000000" | sed s/Z// | bc ) ;;
+                (0)  continue ;;
+                (*K) USED=$( echo ${USED} | awk '{TMP=gsub(/K/,""); TMP=$0*10; gsub(/\..*/,"",TMP); print TMP"00"}' ) ;;
+                (*M) USED=$( echo ${USED} | awk '{TMP=gsub(/M/,""); TMP=$0*10; gsub(/\..*/,"",TMP); print TMP"00000"}' ) ;;
+                (*G) USED=$( echo ${USED} | awk '{TMP=gsub(/G/,""); TMP=$0*10; gsub(/\..*/,"",TMP); print TMP"00000000"}' ) ;;
+                (*T) USED=$( echo ${USED} | awk '{TMP=gsub(/T/,""); TMP=$0*10; gsub(/\..*/,"",TMP); print TMP"00000000000"}' ) ;;
+                (*P) USED=$( echo ${USED} | awk '{TMP=gsub(/P/,""); TMP=$0*10; gsub(/\..*/,"",TMP); print TMP"00000000000000"}' ) ;;
+                (*E) USED=$( echo ${USED} | awk '{TMP=gsub(/E/,""); TMP=$0*10; gsub(/\..*/,"",TMP); print TMP"00000000000000000"}' ) ;;
+                (*Z) USED=$( echo ${USED} | awk '{TMP=gsub(/Z/,""); TMP=$0*10; gsub(/\..*/,"",TMP); print TMP"00000000000000000000"}' ) ;;
               esac
-              TOTAL=$(( $( echo ${USED} | cut -d '.' -f 1 ) + ${TOTAL} ))
+              TOTAL=$( echo ${USED} + ${TOTAL} | bc )
             done << EOF
 $( zfs list -H -t all -o name,origin -r "${BENAME_STARTS_WITH}/${NAME}" | tr '\t' '\n' | grep -v "^-$" )
 EOF
-            RANGE=$( echo ${TOTAL} | cut -d . -f 1 )
-            case $( echo "${RANGE}" | wc -c | tr -c -d '[0-9]\n' ) in
-              (5|6|7)    TOTAL="$( echo ${TOTAL} / 1000                   | bc -l | grep -m 1 -o -E "[0-9]*\.[0-9]{1}" )K" ;;
-              (8|9|10)   TOTAL="$( echo ${TOTAL} / 1000000                | bc -l | grep -m 1 -o -E "[0-9]*\.[0-9]{1}" )M" ;;
-              (11|12|13) TOTAL="$( echo ${TOTAL} / 1000000000             | bc -l | grep -m 1 -o -E "[0-9]*\.[0-9]{1}" )G" ;;
-              (14|15|16) TOTAL="$( echo ${TOTAL} / 1000000000000          | bc -l | grep -m 1 -o -E "[0-9]*\.[0-9]{1}" )T" ;;
-              (17|18|19) TOTAL="$( echo ${TOTAL} / 1000000000000000       | bc -l | grep -m 1 -o -E "[0-9]*\.[0-9]{1}" )P" ;;
-              (20|21|22) TOTAL="$( echo ${TOTAL} / 1000000000000000000    | bc -l | grep -m 1 -o -E "[0-9]*\.[0-9]{1}" )E" ;;
-              (23|24|25) TOTAL="$( echo ${TOTAL} / 1000000000000000000000 | bc -l | grep -m 1 -o -E "[0-9]*\.[0-9]{1}" )Z" ;;
+            case $( echo "${TOTAL}" | wc -c | tr -c -d '[0-9]\n' ) in
+              (5|6|7)    TOTAL=$( echo ${TOTAL} | awk '{printf (substr($0,0,length($0)-2)/10)"K"}' ); ;;
+              (8|9|10)   TOTAL=$( echo ${TOTAL} | awk '{printf (substr($0,0,length($0)-5)/10)"M"}' ); ;;
+              (11|12|13) TOTAL=$( echo ${TOTAL} | awk '{printf (substr($0,0,length($0)-8)/10)"G"}' ); ;;
+              (14|15|16) TOTAL=$( echo ${TOTAL} | awk '{printf (substr($0,0,length($0)-11)/10)"T"}' ); ;;
+              (17|18|19) TOTAL=$( echo ${TOTAL} | awk '{printf (substr($0,0,length($0)-14)/10)"P"}' ); ;;
+              (20|21|22) TOTAL=$( echo ${TOTAL} | awk '{printf (substr($0,0,length($0)-17)/10)"E"}' ); ;;
+              (23|24|25) TOTAL=$( echo ${TOTAL} | awk '{printf (substr($0,0,length($0)-20)/10)"Z"}' ); ;;
             esac
           else
             TOTAL=${USED}
@@ -502,15 +497,10 @@ EOF
           if ! mount -t zfs ${FS} ${TARGET}${MOUNTPOINT} 1> /dev/null 2> /dev/null
           then
             echo "ERROR: Cannot mount '${FS}' at '${TARGET}${MOUNTPOINT}' mountpoint"
-            COMPLETE=0
+            exit 1
           fi
         done
-    if [ ${COMPLETE} -eq 0 ]
-    then
-      echo "Partially mounted"
-    else
-      echo "Mounted successfully on '${TARGET}'"
-    fi
+    echo "Mounted successfully on '${TARGET}'"
     ;;
 
   (umount|unmount) # ------------------------------------------------------------------
@@ -544,16 +534,11 @@ EOF
         do
           if ! umount ${OPTS} ${FS} 1> /dev/null 2> /dev/null
           then
-            echo "ERROR: Cannot umount '${FS}' dataset"
-            COMPLETE=0
+            echo "ERROR: Cannot umount '${FS}'"
+            exit 1
           fi
         done
-    if [ ${COMPLETE} -eq 0 ]
-    then
-      echo "Partially unmounted"
-    else
-      echo "Unmounted successfully"
-    fi
+    echo "Unmounted successfully"
     ;;
 
   (*) # -----------------------------------------------------------------------
