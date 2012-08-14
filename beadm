@@ -150,6 +150,11 @@ case ${1} in
     WIDTH_NAME=$(( ${WIDTH_NAME} - ${#BENAME_STARTS_WITH} - 1 ))
     printf "%-${WIDTH_NAME}s %-6s %-10s %6s %6s %s\n" \
       BE Active Mountpoint Space Policy Created
+    if [ "${2}" = "-S" ]
+    then
+      # do the detailed space calculation [-S]
+      USED_ALL=$( zfs list -H -t all -o name,used )
+    fi
     echo "${LIST}" \
       | while read NAME USED MOUNTPOINT Y m d H M
         do
@@ -174,8 +179,6 @@ case ${1} in
           esac
           if [ "${2}" = "-S" ]
           then
-            # do the detailed space calculation [-S]
-            USED_ALL=$( zfs list -H -t all -o name,used )
             while read I
             do
               USED=$( echo "${USED_ALL}" | grep -m 1 "^${I}" | awk '{print $2}' )
