@@ -102,7 +102,7 @@ __be_new() { # 1=SOURCE 2=TARGET
         do
           local OPTS="-o ${PROPERTY}=${VALUE} ${OPTS}"
         done << EOF
-$( zfs get -o name,property,value -s local,received -H all ${FS} | grep -v -E "canmount" )
+$( zfs get -o name,property,value -s local,received -H all ${FS} | grep -v canmount )
 EOF
         DATASET=$( echo ${FS} | awk '{print $1}' | sed -E s/"^${POOL}\/ROOT\/${SOURCE##*/}"/"${POOL}\/ROOT\/${2##*/}"/g )
         if [ "${OPTS}" = "-o = " ]
@@ -497,8 +497,7 @@ EOF
               then
                 continue
               else
-                MOUNTPOINT=$( echo "${FS}" | sed s/"${PREFIX}"//g )
-                MOUNTPOINT="/${MOUNTPOINT}"
+                MOUNTPOINT="/$( echo "${FS}" | sed s/"${PREFIX}"//g )"
               fi
             fi
           fi
@@ -519,7 +518,7 @@ EOF
   (umount|unmount) # ----------------------------------------------------------
     if [ ${#} -eq 2 ]
     then
-      # we need this section for argument checking
+      # we need this empty section for argument checking
       :
     elif [ ${#} -eq 3 -a "${2}" = "-f" ]
     then
