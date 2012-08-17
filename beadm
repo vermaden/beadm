@@ -1,7 +1,8 @@
 #!/bin/sh -e
 
-# Copyright 2012 Slawomir Wojciech Wojtczak (vermaden). All rights reserved.
-# Copyright 2012 Bryan Drewery (bdrewery). All rights reserved.
+# Copyright (c) 2012 Slawomir Wojciech Wojtczak (vermaden). All rights reserved.
+# Copyright (c) 2012 Bryan Drewery (bdrewery). All rights reserved.
+# Copyright (c) 2012 Mike Clarke (rawthey). All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that following conditions are met:
@@ -36,13 +37,16 @@ __usage() {
   local NAME=${0##*/}
   echo "usage:"
   echo "  ${NAME} activate beName"
-  echo "  ${NAME} create [-e nonActiveBe | -e beName@snapshot] beName"
+  echo "  ${NAME} create [-e nonActiveBe] beName"
+  echo "  ${NAME} create [-e beName@snapshot] beName"
   echo "  ${NAME} create beName@snapshot"
-  echo "  ${NAME} destroy [-F] beName | beName@snapshot"
-  echo "  ${NAME} list [-S]"
+  echo "  ${NAME} destroy [-F] beName"
+  echo "  ${NAME} destroy [-F] beName@snapshot"
+  echo "  ${NAME} list"
   echo "  ${NAME} mount"
   echo "  ${NAME} mount beName [mountpoint]"
-  echo "  ${NAME} umount | unmount [-f] beName"
+  echo "  ${NAME} umount [-f] beName"
+  echo "  ${NAME} unmount [-f] beName"
   echo "  ${NAME} rename origBeName newBeName"
   exit 1
 }
@@ -144,19 +148,22 @@ case ${1} in
       __usage
     fi
     BENAME_STARTS_WITH="${POOL}/ROOT"
-    LIST=$( zfs list -o name,used,mountpoint,creation -s creation -H -d 1 -r ${POOL}/ROOT | grep -E "^${POOL}/ROOT/" )
+    LIST=$( zfs list -o name,mountpoint,creation -s creation -H -d 1 -r ${POOL}/ROOT | grep -E "^${POOL}/ROOT/" )
     WIDTH_CREATION=$( echo "${LIST}" | awk '{print $5}' | wc -L )
     WIDTH_NAME=$( echo "${LIST}" | awk '{print $1}' | wc -L )
     WIDTH_NAME=$(( ${WIDTH_NAME} - ${#BENAME_STARTS_WITH} - 1 ))
     printf "%-${WIDTH_NAME}s %-6s %-10s %6s %6s %s\n" \
       BE Active Mountpoint Space Policy Created
-    if [ "${2}" = "-S" ]
-    then
-      # do the detailed space calculation [-S]
-      USED_ALL=$( zfs list -H -t all -o name,used )
-    fi
+    # shell strips out line breaks from the command output so we add ~ to
+    # end of each line for use as a record separator later by AWK. The ~
+    # is not a valid character for use in zfs components so it is not
+    # likely to cause problems by appearing anywhere else in the output
+    USED_ALL=$( zfs list -H -t all -o name,origin,used -r ${POOL}/ROOT \
+                  | sed 1d \
+                  | sed '/0$/d;s/K$/ 1/;s/M$/ 1024/;s/G$/ 1048576/;s/T$/ 1073741824/;s/P$/ 1099511627776/;s/E$/ 1125899906842624/;s/Z$/ 1152921504606846976/' \
+                  | sed 's/$/~/' )
     echo "${LIST}" \
-      | while read NAME USED MOUNTPOINT Y m d H M
+      | while read NAME MOUNTPOINT Y m d H M
         do
           TOTAL=0
           NAME=${NAME##*/}
@@ -177,37 +184,23 @@ case ${1} in
             (N|NR) MOUNT="/" ;;
             (*)    MOUNT="-" ;;
           esac
-          if [ "${2}" = "-S" ]
-          then
-            while read I
-            do
-              USED=$( echo "${USED_ALL}" | grep -m 1 "^${I}" | awk '{print $2}' )
-              case "${USED}" in
-                (0)  continue ;;
-                (*K) USED=$( echo ${USED} | awk '{TMP=gsub(/K/,""); TMP=$0*10; gsub(/\..*/,"",TMP); print TMP"00"}' ) ;;
-                (*M) USED=$( echo ${USED} | awk '{TMP=gsub(/M/,""); TMP=$0*10; gsub(/\..*/,"",TMP); print TMP"00000"}' ) ;;
-                (*G) USED=$( echo ${USED} | awk '{TMP=gsub(/G/,""); TMP=$0*10; gsub(/\..*/,"",TMP); print TMP"00000000"}' ) ;;
-                (*T) USED=$( echo ${USED} | awk '{TMP=gsub(/T/,""); TMP=$0*10; gsub(/\..*/,"",TMP); print TMP"00000000000"}' ) ;;
-                (*P) USED=$( echo ${USED} | awk '{TMP=gsub(/P/,""); TMP=$0*10; gsub(/\..*/,"",TMP); print TMP"00000000000000"}' ) ;;
-                (*E) USED=$( echo ${USED} | awk '{TMP=gsub(/E/,""); TMP=$0*10; gsub(/\..*/,"",TMP); print TMP"00000000000000000"}' ) ;;
-                (*Z) USED=$( echo ${USED} | awk '{TMP=gsub(/Z/,""); TMP=$0*10; gsub(/\..*/,"",TMP); print TMP"00000000000000000000"}' ) ;;
-              esac
-              TOTAL=$( echo | awk -v used=${USED} -v total=${TOTAL} '{print used + total}' )
-            done << EOF
-$( zfs list -H -t all -o name,origin -r "${BENAME_STARTS_WITH}/${NAME}" | tr '\t' '\n' | grep -v "^-$" )
-EOF
-            case $( echo "${TOTAL}" | awk '{print length($0)}' ) in
-              (4|5|6)    TOTAL=$( echo ${TOTAL} | awk '{printf (substr($0,0,length($0)-2)/10)"K"}' ); ;;
-              (7|8|9)    TOTAL=$( echo ${TOTAL} | awk '{printf (substr($0,0,length($0)-5)/10)"M"}' ); ;;
-              (10|11|12) TOTAL=$( echo ${TOTAL} | awk '{printf (substr($0,0,length($0)-8)/10)"G"}' ); ;;
-              (13|14|15) TOTAL=$( echo ${TOTAL} | awk '{printf (substr($0,0,length($0)-11)/10)"T"}' ); ;;
-              (16|17|18) TOTAL=$( echo ${TOTAL} | awk '{printf (substr($0,0,length($0)-14)/10)"P"}' ); ;;
-              (19|20|21) TOTAL=$( echo ${TOTAL} | awk '{printf (substr($0,0,length($0)-17)/10)"E"}' ); ;;
-              (22|23|24) TOTAL=$( echo ${TOTAL} | awk '{printf (substr($0,0,length($0)-20)/10)"Z"}' ); ;;
-            esac
-          else
-            TOTAL=${USED}
-          fi
+          # get the name of origin snapshot for boot environment
+          SNAPSHOT=$( zfs list -H -t all -o name,origin sys/ROOT/${NAME} | awk -F '@' '{print $2}' )
+          # calculate space total usage for boot environment
+          TOTAL=$( echo ${USED_ALL} \
+                     | awk -v RS=~ -v match1="^${POOL}\/ROOT\/${NAME}"'(([@/]+.*)|$)' -v match2="@${SNAPSHOT}$" \
+                       'BEGIN {total=0}
+                        ($1 ~ match1) || ($1 ~ match2) {total += $3 * $4}
+                        END {
+                             if (total <= 1024)                  {                                      unit = "K"; }
+                        else if (total <= 1048576)               { total = total / 1024;                unit = "M"; }
+                        else if (total <= 1073741824)            { total = total / 1048576;             unit = "G"; }
+                        else if (total <= 1099511627776)         { total = total / 1073741824;          unit = "T"; }
+                        else if (total <= 1125899906842624)      { total = total / 1099511627776;       unit = "P"; }
+                        else if (total <= 1152921504606846976)   { total = total / 1125899906842624;    unit = "E"; }
+                                                            else { total = total / 1152921504606846976; unit = "Z"; }
+                        printf ("%.1f%s",total,unit);
+                        }' )
           printf "%-${WIDTH_NAME}s %-6s %-10s %6s %-6s " ${NAME} ${ACTIVE} ${MOUNT} ${TOTAL} "static"
           date -j -f "%a %b %d %H:%M %Y" "${Y} ${m} ${d} ${H} ${M}" +"%Y-%m-%d %H:%M"
         done
@@ -398,11 +391,11 @@ EOF
                     done
               done
           # destroy origins used by destroyed boot environment
-          ALL_ORIGINS=$( zfs list -H -t all -o origin )
+          SNAPSHOTS=$( zfs list -H -t snapshot -o name )
           echo "${ORIGIN_SNAPSHOTS}" \
             | while read S
               do
-                echo "${ALL_ORIRINS}" \
+                echo "${SNAPSHOTS}" \
                   | grep "@${S}$" \
                   | while read I
                     do
