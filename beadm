@@ -70,6 +70,25 @@ __be_mounted() { # 1=BE
   mount 2> /dev/null | grep -q -E "^${1} " 2> /dev/null
 }
 
+# check if boot environment is a clone
+__be_clone() { # 1=DATASET
+  if zfs list sys/ROOT/static 1> /dev/null 2> /dev/null
+  then
+    local ORIGIN="$( zfs list -H -o origin ${1} )"
+    if [ "${ORIGIN}" = "-" ]
+    then
+      # boot environment is not a clone
+      return 1
+    else
+      # boot environment is a clone
+      return 0
+    fi
+  else
+    # boot environment does not exist
+    return 2
+  fi
+}
+
 # create new boot environment
 __be_new() { # 1=SOURCE 2=TARGET
   local SOURCE=$( echo ${1} | cut -d '@' -f 1 )
@@ -364,44 +383,50 @@ EOF
             exit 1
           fi
         else
-          # promote clones dependent on snapshots used by destroyed boot environment
-          zfs list -H -t all -o name,origin \
-            | while read NAME ORIGIN
-              do
-                if echo "${ORIGIN}" | grep -q -E "${POOL}/ROOT/${DESTROY}(/.*@|@)" 2> /dev/null
-                then
-                  zfs promote ${NAME}
-                fi
-              done
-          # get origins used by destroyed boot environment
-          ORIGIN_SNAPSHOTS=$( zfs list -H -t all -o origin -r ${POOL}/ROOT/${DESTROY} | grep -v '^-$' | awk -F "@" '{print $2}' | sort -u )
+          if __be_clone ${POOL}/ROOT/${DESTROY}
+          then
+            # promote clones dependent on snapshots used by destroyed boot environment
+            zfs list -H -t all -o name,origin \
+              | while read NAME ORIGIN
+                do
+                  if echo "${ORIGIN}" | grep -q -E "${POOL}/ROOT/${DESTROY}(/.*@|@)" 2> /dev/null
+                  then
+                    zfs promote ${NAME}
+                  fi
+                done
+            # get origins used by destroyed boot environment
+            ORIGIN_SNAPSHOTS=$( zfs list -H -t all -o origin -r ${POOL}/ROOT/${DESTROY} | grep -v '^-$' | awk -F "@" '{print $2}' | sort -u )
+          fi
           # destroy boot environment
           zfs destroy -r ${POOL}/ROOT/${DESTROY}
-          # promote datasets dependent on origins used by destroyed boot environment
-          ALL_ORIGINS=$( zfs list -H -t all -o name,origin )
-          echo "${ORIGIN_SNAPSHOTS}" \
-            | while read S
-              do
-                echo "${ALL_ORIRINS}" \
-                  | grep "${S}" \
-                  | awk '{print $1}' \
-                  | while read I
-                    do
-                      zfs promote ${I}
-                    done
-              done
-          # destroy origins used by destroyed boot environment
-          SNAPSHOTS=$( zfs list -H -t snapshot -o name )
-          echo "${ORIGIN_SNAPSHOTS}" \
-            | while read S
-              do
-                echo "${SNAPSHOTS}" \
-                  | grep "@${S}$" \
-                  | while read I
-                    do
-                      zfs destroy ${I}
-                    done
-              done
+          if __be_clone ${POOL}/ROOT/${DESTROY}
+          then
+            # promote datasets dependent on origins used by destroyed boot environment
+            ALL_ORIGINS=$( zfs list -H -t all -o name,origin )
+            echo "${ORIGIN_SNAPSHOTS}" \
+              | while read S
+                do
+                  echo "${ALL_ORIRINS}" \
+                    | grep "${S}" \
+                    | awk '{print $1}' \
+                    | while read I
+                      do
+                        zfs promote ${I}
+                      done
+                done
+            # destroy origins used by destroyed boot environment
+            SNAPSHOTS=$( zfs list -H -t snapshot -o name )
+            echo "${ORIGIN_SNAPSHOTS}" \
+              | while read S
+                do
+                  echo "${SNAPSHOTS}" \
+                    | grep "@${S}$" \
+                    | while read I
+                      do
+                        zfs destroy ${I}
+                      done
+                done
+          fi
         fi
         echo "Destroyed successfully"
         ;;
