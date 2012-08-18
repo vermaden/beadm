@@ -211,9 +211,9 @@ case ${1} in
           SNAPSHOT=$( zfs list -H -t all -o name,origin sys/ROOT/${NAME} | awk -F '@' '{print $2}' )
           # calculate space total usage for boot environment
           TOTAL=$( echo ${USED_ALL} \
-                     | awk -v RS=~ -v match1="^${POOL}\/ROOT\/${NAME}"'(([@/]+.*)|$)' -v match2="@${SNAPSHOT}$" \
+                     | awk -v RS=~ -v name="^${POOL}\/ROOT\/${NAME}"'(([@/]+.*)|$)' -v snapshot="@${SNAPSHOT}$" \
                        'BEGIN {total=0}
-                        ($1 ~ match1) || ($1 ~ match2) {total += $3 * $4}
+                        ($1 ~ name) || ($1 ~ snapshot) {total += $3 * $4}
                         END {
                              if (total <= 1024)                  {                                      unit = "K"; }
                         else if (total <= 1048576)               { total = total / 1024;                unit = "M"; }
