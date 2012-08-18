@@ -72,7 +72,7 @@ __be_mounted() { # 1=BE
 
 # check if boot environment is a clone
 __be_clone() { # 1=DATASET
-  if zfs list sys/ROOT/static 1> /dev/null 2> /dev/null
+  if zfs list ${1} 1> /dev/null 2> /dev/null
   then
     local ORIGIN="$( zfs list -H -o origin ${1} )"
     if [ "${ORIGIN}" = "-" ]
@@ -94,6 +94,7 @@ __be_new() { # 1=SOURCE 2=TARGET
   local SOURCE=$( echo ${1} | cut -d '@' -f 1 )
   if __be_snapshot ${1}
   then
+    # create boot environment from snapshot
     local SNAPSHOT=$( echo ${1} | cut -d '@' -f 2 )
     zfs list -r -H -t filesystem -o name ${SOURCE} \
       | while read FS
@@ -105,11 +106,13 @@ __be_new() { # 1=SOURCE 2=TARGET
           fi
         done
   else
+    # create boot environment from other boot environment
     if zfs list -H -o name ${1}@${2##*/} 1> /dev/null 2> /dev/null
     then
       echo "ERROR: Snapshot '${1}@${2##*/}' already exists"
       exit 1
     fi
+    # snapshot format
     FMT=$( date "+%Y-%m-%d-%H:%M:%S" )
     if ! zfs snapshot -r ${1}@${FMT} 1> /dev/null 2> /dev/null      # 2##*/ > FMT
     then
@@ -117,6 +120,7 @@ __be_new() { # 1=SOURCE 2=TARGET
       exit 1
     fi
   fi
+  # clone properties of source boot environment
   zfs list -H -o name -r ${SOURCE} \
     | while read FS
       do
@@ -270,33 +274,36 @@ case ${1} in
       echo "Already activated"
       exit 0
     else
-      if mount | grep -E "^${POOL}/ROOT/${2} " 1> /dev/null 2> /dev/null
+      if __be_mounted ${POOL}/ROOT/${2}
       then
         MNT=$( mount | grep -E "^${POOL}/ROOT/${2} " | awk '{print $3}' )
         if [ "${MNT}" != "/" ]
         then
+          # boot environment is not current root and its mounted
           echo "ERROR: Boot environment '${2}' is mounted at '${MNT}'"
           echo "ERROR: Cannot activate mounted boot environment"
           exit 1
         fi
       fi
+      # do not change root (/) mounted boot environment mountpoint
       if [ "${ROOTFS}" != "${POOL}/ROOT/${2}" ]
       then
-        TMPMNT="/tmp/BE"
+        TMPMNT="/tmp/beadm"
         if ! mkdir -p ${TMPMNT}
         then
           echo "ERROR: Cannot create '${TMPMNT}' directory"
           exit 1
         fi
         MOUNT=0
-        while read FS MNT
+        while read FS MNT TYPE OPTS DUMP FSCK;
         do
           if [ "${FS}" = "${POOL}/ROOT/${2}" ]
           then
             MOUNT=${MNT}
+            break
           fi
         done << EOF
-$( mount -p | awk '{print $1 " " $2}' )
+$( mount -p )
 EOF
         if [ ${MOUNT} -eq 0 ]
         then
@@ -321,7 +328,7 @@ EOF
       fi
       if ! zpool set bootfs=${POOL}/ROOT/${2} ${POOL} 2> /dev/null
       then
-        echo "ERROR: Failed to activate '${2}'"
+        echo "ERROR: Failed to activate '${2}' boot environment"
         exit 1
       fi
     fi
@@ -337,7 +344,7 @@ EOF
       | while read I ORIGIN
         do
           zfs set canmount=on ${I}
-          if [ ${ORIGIN} != "-" ]
+          if [ "${ORIGIN}" != "-" ]
           then
             zfs promote ${I}
           fi
@@ -373,7 +380,7 @@ EOF
     fi
     case ${CHOICE} in
       (Y|y|[Yy][Ee][Ss])
-        # delete snapshot or delete boot environment
+        # destroy snapshot or boot environment
         if __be_snapshot ${POOL}/ROOT/${DESTROY}
         then
           # destroy desired snapshot
@@ -406,7 +413,7 @@ EOF
             echo "${ORIGIN_SNAPSHOTS}" \
               | while read S
                 do
-                  echo "${ALL_ORIRINS}" \
+                  echo "${ALL_ORIGINS}" \
                     | grep "${S}" \
                     | awk '{print $1}' \
                     | while read I
