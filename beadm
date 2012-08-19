@@ -208,7 +208,7 @@ case ${1} in
             (*)    MOUNT="-" ;;
           esac
           # get the name of origin snapshot for boot environment
-          SNAPSHOT=$( zfs list -H -t all -o name,origin sys/ROOT/${NAME} | awk -F '@' '{print $2}' )
+          SNAPSHOT=$( zfs list -H -t all -o name,origin ${POOL}/ROOT/${NAME} | awk -F '@' '{print $2}' )
           # calculate space total usage for boot environment
           TOTAL=$( echo ${USED_ALL} \
                      | awk -v RS=~ -v name="^${POOL}\/ROOT\/${NAME}"'(([@/]+.*)|$)' -v snapshot="@${SNAPSHOT}$" \
