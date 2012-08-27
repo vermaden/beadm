@@ -177,14 +177,22 @@ case ${1} in
     WIDTH_NAME=$(( ${WIDTH_NAME} - ${#BENAME_STARTS_WITH} - 1 ))
     printf "%-${WIDTH_NAME}s %-6s %-10s %6s %6s %s\n" \
       BE Active Mountpoint Space Policy Created
-    # shell strips out line breaks from the command output so we add ~ to
-    # end of each line for use as a record separator later by AWK. The ~
-    # is not a valid character for use in zfs components so it is not
-    # likely to cause problems by appearing anywhere else in the output
-    USED_ALL=$( zfs list -H -t all -o name,origin,used -r ${POOL}/ROOT \
+    # get list of USEDBYDATASET and USED properties
+    USED_ALL=$( zfs list -H -t all -o name,usedbydataset,used -r sys/ROOT \
                   | sed 1d \
-                  | sed '/0$/d;s/K$/ 1/;s/M$/ 1024/;s/G$/ 1048576/;s/T$/ 1073741824/;s/P$/ 1099511627776/;s/E$/ 1125899906842624/;s/Z$/ 1152921504606846976/' \
-                  | sed 's/$/~/' )
+                  | sed '/0$/d' \
+                  | awk '{ gsub("-"," 0 0 ",$2);                 gsub("-"," 0 0 ",$3);
+                           gsub("K"," 1 ",$2);                   gsub("K"," 1 ",$3);
+                           gsub("M"," 1024 ",$2);                gsub("M"," 1024 ",$3);
+                           gsub("G"," 1048576 ",$2);             gsub("G"," 1048576 ",$3);
+                           gsub("T"," 1073741824 ",$2);          gsub("T"," 1073741824 ",$3);
+                           gsub("P"," 1099511627776 ",$2);       gsub("P"," 1099511627776 ",$3);
+                           gsub("E"," 1125899906842624 ",$2);    gsub("E"," 1125899906842624 ",$3);
+                           gsub("Z"," 1152921504606846976 ",$2); gsub("Z"," 1152921504606846976 ",$3);
+                           print $0;
+                         }' )
+    # get the list of names and origins for all boot environments
+    SNAPSHOT_ALL=$( zfs list -H -t all -o name,origin -d 1 ${POOL}/ROOT )
     echo "${LIST}" \
       | while read NAME MOUNTPOINT a b d HM Y
         do
@@ -208,12 +216,13 @@ case ${1} in
             (*)    MOUNT="-" ;;
           esac
           # get the name of origin snapshot for boot environment
-          SNAPSHOT=$( zfs list -H -t all -o name,origin ${POOL}/ROOT/${NAME} | awk -F '@' '{print $2}' )
+          SNAPSHOT=$( echo "${SNAPSHOT_ALL}" | awk "/^${POOL}\/ROOT\/${NAME}\t/" | awk -F '@' '{print $2}' )
           # calculate space total usage for boot environment
-          TOTAL=$( echo ${USED_ALL} \
-                     | awk -v RS=~ -v name="^${POOL}\/ROOT\/${NAME}"'(([@/]+.*)|$)' -v snapshot="@${SNAPSHOT}$" \
-                       'BEGIN {total=0}
-                        ($1 ~ name) || ($1 ~ snapshot) {total += $3 * $4}
+          TOTAL=$( echo "${USED_ALL}" \
+                     | awk -v name="^${POOL}\/ROOT\/${NAME}$" -v snapshot="@${SNAPSHOT}$" \
+                       'BEGIN {total = 0}
+                        ($1 ~ name)     {total += $2 * $3}
+                        ($1 ~ snapshot) {total += $4 * $5}
                         END {
                              if (total <= 1024)                  {                                      unit = "K"; }
                         else if (total <= 1048576)               { total = total / 1024;                unit = "M"; }
