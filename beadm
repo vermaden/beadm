@@ -163,6 +163,12 @@ fi
 
 BOOTFS=$( zpool list -H -o bootfs ${POOL} )
 
+if [ "${BOOTFS}" = "" -o "${BOOTFS}" = "-" ]
+then
+ echo "ERROR: ZFS boot pool '${POOL}' has unset 'bootfs' property"
+ exit 1
+fi
+
 case ${1} in
 
   (list) # --------------------------------------------------------------------
@@ -219,7 +225,7 @@ case ${1} in
           SNAPSHOT=$( echo "${SNAPSHOT_ALL}" | awk "/^${POOL}\/ROOT\/${NAME}\t/" | awk -F '@' '{print $2}' )
           # calculate space total usage for boot environment
           TOTAL=$( echo "${USED_ALL}" \
-                     | awk -v name="^${POOL}\/ROOT\/${NAME}$" -v snapshot="@${SNAPSHOT}$" \
+                     | awk -v name="^${POOL}\/ROOT\/${NAME}" -v snapshot="@${SNAPSHOT}$" \
                        'BEGIN {total = 0}
                         ($1 ~ name)     {total += $2 * $3}
                         ($1 ~ snapshot) {total += $4 * $5}
@@ -303,7 +309,7 @@ case ${1} in
       # do not change root (/) mounted boot environment mountpoint
       if [ "${ROOTFS}" != "${POOL}/ROOT/${2}" ]
       then
-        TMPMNT="/tmp/beadm"
+        TMPMNT=$( mktemp -d /tmp/tmp.XXXXXX )
         if ! mkdir -p ${TMPMNT}
         then
           echo "ERROR: Cannot create '${TMPMNT}' directory"
@@ -333,7 +339,7 @@ EOF
         if [ -f ${TMPMNT}/boot/loader.conf.local ]
         then
           LOADER_CONFIGS="${LOADER_CONFIGS} ${TMPMNT}/boot/loader.conf.local"
-          fi
+        fi
         sed -i '' -E s/"^vfs.root.mountfrom=.*$"/"vfs.root.mountfrom=\"zfs:${POOL}\/ROOT\/${2##*/}\""/g ${LOADER_CONFIGS} 2> /dev/null
         if [ ${MOUNT} -eq 0 ]
         then
