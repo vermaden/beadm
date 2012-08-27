@@ -114,9 +114,9 @@ __be_new() { # 1=SOURCE 2=TARGET
     fi
     # snapshot format
     FMT=$( date "+%Y-%m-%d-%H:%M:%S" )
-    if ! zfs snapshot -r ${1}@${FMT} 1> /dev/null 2> /dev/null      # 2##*/ > FMT
+    if ! zfs snapshot -r ${1}@${FMT} 1> /dev/null 2> /dev/null
     then
-      echo "ERROR: Cannot create snapshot '${1}@${FMT}'"            # 2##*/ > FMT
+      echo "ERROR: Cannot create snapshot '${1}@${FMT}'"
       exit 1
     fi
   fi
@@ -140,7 +140,7 @@ EOF
         then
           zfs clone -o canmount=off ${OPTS} ${FS}@${1##*@} ${DATASET}
         else
-          zfs clone -o canmount=off ${OPTS} ${FS}@${FMT} ${DATASET} # 2##*/ > FMT
+          zfs clone -o canmount=off ${OPTS} ${FS}@${FMT} ${DATASET}
         fi
       done
 }
@@ -310,7 +310,7 @@ case ${1} in
       if [ "${ROOTFS}" != "${POOL}/ROOT/${2}" ]
       then
         TMPMNT=$( mktemp -d /tmp/tmp.XXXXXX )
-        if ! mkdir -p ${TMPMNT}
+        if ! mkdir -p ${TMPMNT} 2> /dev/null
         then
           echo "ERROR: Cannot create '${TMPMNT}' directory"
           exit 1
@@ -376,12 +376,11 @@ EOF
   (destroy) # -----------------------------------------------------------------
     if [ "${2}" != "-F" ]
     then
-      __be_exist ${POOL}/ROOT/${2}
       DESTROY=${2}
     else
-      __be_exist ${POOL}/ROOT/${3}
       DESTROY=${3}
     fi
+    __be_exist ${POOL}/ROOT/${DESTROY}
     case ${#} in
       (2)
         echo "Are you sure you want to destroy '${2}'?"
