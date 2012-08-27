@@ -439,7 +439,7 @@ EOF
                 ;;
             esac
           else
-            CHOICE=0
+            CHOICE=1
           fi
           # destroy boot environment
           zfs destroy -r ${POOL}/ROOT/${DESTROY}
