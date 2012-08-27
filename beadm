@@ -186,7 +186,7 @@ case ${1} in
                   | sed '/0$/d;s/K$/ 1/;s/M$/ 1024/;s/G$/ 1048576/;s/T$/ 1073741824/;s/P$/ 1099511627776/;s/E$/ 1125899906842624/;s/Z$/ 1152921504606846976/' \
                   | sed 's/$/~/' )
     echo "${LIST}" \
-      | while read NAME MOUNTPOINT Y m d H M
+      | while read NAME MOUNTPOINT a b d HM Y
         do
           TOTAL=0
           NAME=${NAME##*/}
@@ -225,7 +225,7 @@ case ${1} in
                         printf ("%.1f%s",total,unit);
                         }' )
           printf "%-${WIDTH_NAME}s %-6s %-10s %6s %-6s " ${NAME} ${ACTIVE} ${MOUNT} ${TOTAL} "static"
-          date -j -f "%a %b %d %H:%M %Y" "${Y} ${m} ${d} ${H} ${M}" +"%Y-%m-%d %H:%M"
+          date -j -f "%a %b %d %H:%M %Y" "${a} ${b} ${d} ${HM} ${y}" +"%Y-%m-%d %H:%M"
         done
     ;;
 
@@ -233,6 +233,12 @@ case ${1} in
     case ${#} in
       (4)
         if ! [ ${2} = "-e" ]
+        then
+          __usage
+        fi
+        # check if argument for -e option is full path dataset
+        # argument for -e option must be 'beName' or 'beName@snapshot'
+        if echo ${3} | grep -q "/" 2> /dev/null
         then
           __usage
         fi
@@ -353,12 +359,19 @@ EOF
     ;;
 
   (destroy) # -----------------------------------------------------------------
+    if [ "${2}" != "-F" ]
+    then
+      __be_exist ${POOL}/ROOT/${2}
+      DESTROY=${2}
+    else
+      __be_exist ${POOL}/ROOT/${3}
+      DESTROY=${3}
+    fi
     case ${#} in
       (2)
         echo "Are you sure you want to destroy '${2}'?"
         echo -n "This action cannot be undone (y/[n]): "
         read CHOICE
-        DESTROY=${2}
         ;;
       (3)
         if [ "${2}" != "-F" ]
@@ -366,13 +379,11 @@ EOF
           __usage
         fi
         CHOICE=Y
-        DESTROY=${3}
         ;;
       (*)
         __usage
         ;;
     esac
-    __be_exist ${POOL}/ROOT/${DESTROY}
     if [ "${BOOTFS}" = "${POOL}/ROOT/${DESTROY}" ]
     then
       echo "ERROR: Cannot destroy active boot environment"
@@ -404,8 +415,35 @@ EOF
             # get origins used by destroyed boot environment
             ORIGIN_SNAPSHOTS=$( zfs list -H -t all -o origin -r ${POOL}/ROOT/${DESTROY} | grep -v '^-$' | awk -F "@" '{print $2}' | sort -u )
           fi
+          # check if boot environment was created from existing snapshot
+          ORIGIN=$( zfs list -H -o origin ${POOL}/ROOT/${DESTROY} )
+          CREATION=$( zfs list -H -o creation ${POOL}/ROOT/${DESTROY} )
+          CREATION=$( date -j -f "%a %b %d %H:%M %Y" "${CREATION}" +"%Y-%m-%d-%H:%M" )
+          SNAPSHOT_NAME=$( echo "${ORIGIN}" | cut -d '@' -f 2 | sed -E 's/:[0-9]{2}$//g' )
+          if [ "${2}" = "-F" ]
+          then
+            CHOICE=1
+          elif [ "${SNAPSHOT_NAME}" != "${CREATION}" ]
+          then
+            ORIGIN=$( basename ${ORIGIN} )
+            echo "Boot environment '${DESTROY}' was created from existing snapshot"
+            echo -n "Destroy '${ORIGIN}' snapshot? (y/[n]): "
+            read CHOICE
+            case ${CHOICE} in
+              (Y|y|[Yy][Ee][Ss])
+                CHOICE=1
+                ;;
+              (*)
+                CHOICE=0
+                echo "Origin snapshot '${ORIGIN}' will be preserved"
+                ;;
+            esac
+          else
+            CHOICE=0
+          fi
           # destroy boot environment
           zfs destroy -r ${POOL}/ROOT/${DESTROY}
+          # check if boot environment is a clone
           if __be_clone ${POOL}/ROOT/${DESTROY}
           then
             # promote datasets dependent on origins used by destroyed boot environment
@@ -421,19 +459,22 @@ EOF
                         zfs promote ${I}
                       done
                 done
-            # destroy origins used by destroyed boot environment
-            SNAPSHOTS=$( zfs list -H -t snapshot -o name )
-            echo "${ORIGIN_SNAPSHOTS}" \
-              | while read S
-                do
-                  echo "${SNAPSHOTS}" \
-                    | grep "@${S}$" \
-                    | while read I
-                      do
-                        zfs destroy ${I}
-                      done
-                done
           fi
+          # destroy origins used by destroyed boot environment
+          SNAPSHOTS=$( zfs list -H -t snapshot -o name )
+          echo "${ORIGIN_SNAPSHOTS}" \
+            | while read S
+              do
+                echo "${SNAPSHOTS}" \
+                  | grep "@${S}$" \
+                  | while read I
+                    do
+                      if [ ${CHOICE} -eq 1 ]
+                      then
+                        zfs destroy ${I}
+                      fi
+                    done
+              done
         fi
         echo "Destroyed successfully"
         ;;
