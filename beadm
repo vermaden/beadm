@@ -163,7 +163,7 @@ fi
 
 BOOTFS=$( zpool list -H -o bootfs ${POOL} )
 
-if [ "${BOOTFS}" = "" -o "${BOOTFS}" = "-" ]
+if [ -z "${BOOTFS}" -o "${BOOTFS}" = "-" ]
 then
  echo "ERROR: ZFS boot pool '${POOL}' has unset 'bootfs' property"
  exit 1
@@ -172,17 +172,31 @@ fi
 case ${1} in
 
   (list) # --------------------------------------------------------------------
-    if [ ${#} -ne 1 ]
+    if [ ${#} -ne 1 -a "${2}" != "-a" ]
     then
       __usage
     fi
-    BENAME_STARTS_WITH="${POOL}/ROOT"
-    LIST=$( zfs list -o name,mountpoint,creation -s creation -H -d 1 -r ${POOL}/ROOT | grep -E "^${POOL}/ROOT/" )
-    WIDTH_CREATION=$( echo "${LIST}" | awk '{print $5}' | wc -L )
-    WIDTH_NAME=$( echo "${LIST}" | awk '{print $1}' | wc -L )
-    WIDTH_NAME=$(( ${WIDTH_NAME} - ${#BENAME_STARTS_WITH} - 1 ))
-    printf "%-${WIDTH_NAME}s %-6s %-10s %6s %6s %s\n" \
-      BE Active Mountpoint Space Policy Created
+    if [ "${2}" = "-a" ]
+    then
+      ZFS_LIST=$( zfs list -o name,mountpoint,used,creation -H -t all -r ${POOL}/ROOT | sed 1d )
+    else
+      ZFS_LIST=$( zfs list -o name,mountpoint,used,creation -s creation -H -d 1 -r ${POOL}/ROOT | sed 1d )
+    fi
+    WIDTH_CREATION=$( echo "${ZFS_LIST}" | awk '{print $5}' | wc -L )
+    WIDTH_NAME=$( echo "${ZFS_LIST}" | awk '{print $1}' | wc -L )
+    ZFS_MOUNT_LIST=$( zfs mount | grep "^${POOL}/ROOT/" )
+    if [ "${2}" = "-a" ]
+    then
+      WIDTH_MOUNT=$( echo "${ZFS_MOUNT_LIST}" | awk '{print $2}' | wc -L )
+    else
+      BENAMES=$( echo "${ZFS_LIST}" | awk '{print $1}' | xargs basename | tr '\n' '|' | sed 's/.$//' )
+      WIDTH_MOUNT=$( echo "${ZFS_MOUNT_LIST}" | grep -E "(${BENAMES}) " | awk '{print $2}' | wc -L )
+      WIDTH_NAME=$(( ${WIDTH_NAME} - ${#POOL} - 6 ))
+      if [ ${WIDTH_MOUNT} -lt 10 ]
+      then
+        WIDTH_MOUNT=10
+      fi
+    fi
     # get list of USEDBYDATASET and USED properties
     USED_ALL=$( zfs list -H -t all -o name,usedbydataset,used -r sys/ROOT \
                   | sed 1d \
@@ -199,17 +213,26 @@ case ${1} in
                          }' )
     # get the list of names and origins for all boot environments
     SNAPSHOT_ALL=$( zfs list -H -t all -o name,origin -d 1 ${POOL}/ROOT )
-    echo "${LIST}" \
-      | while read NAME MOUNTPOINT a b d HM Y
+    if [ "${2}" = "-a" ]
+    then
+      printf "%-${WIDTH_NAME}s   %-6s %-${WIDTH_MOUNT}s %6s %s\n" \
+        BE/Dataset/Snapshot Active Mountpoint Space Created
+    else
+      printf "%-${WIDTH_NAME}s %-6s %-${WIDTH_MOUNT}s %6s %s\n" \
+        BE Active Mountpoint Space Created
+    fi
+    echo "${ZFS_LIST}" \
+      | while read NAME MOUNTPOINT USED a b d HM Y
         do
           TOTAL=0
+          DATASET=${NAME}
           NAME=${NAME##*/}
           ACTIVE=''
-          if [ "${BENAME_STARTS_WITH}/${NAME}" = "${ROOTFS}" ]
+          if [ "${POOL}/ROOT/${NAME}" = "${ROOTFS}" ]
           then
             ACTIVE="${ACTIVE}N"
             fi
-          if [ "${BENAME_STARTS_WITH}/${NAME}" = "${BOOTFS}" ]
+          if [ "${POOL}/ROOT/${NAME}" = "${BOOTFS}" ]
           then
             ACTIVE="${ACTIVE}R"
           fi
@@ -217,30 +240,52 @@ case ${1} in
           then
             ACTIVE="-"
           fi
-          case ${ACTIVE} in
-            (N|NR) MOUNT="/" ;;
-            (*)    MOUNT="-" ;;
-          esac
+          if [ "${2}" = "-a" ]
+          then
+            MOUNT=$( echo "${ZFS_MOUNT_LIST}" | grep -m 1 "^${DATASET}" | awk '{print $2}' )
+          else
+            MOUNT=$( echo "${ZFS_MOUNT_LIST}" | grep -m 1 "^${POOL}/ROOT/${NAME}" | awk '{print $2}' )
+          fi
+          if [ -z "${MOUNT}" ]
+          then
+            MOUNT="-"
+          fi
           # get the name of origin snapshot for boot environment
           SNAPSHOT=$( echo "${SNAPSHOT_ALL}" | awk "/^${POOL}\/ROOT\/${NAME}\t/" | awk -F '@' '{print $2}' )
-          # calculate space total usage for boot environment
-          TOTAL=$( echo "${USED_ALL}" \
-                     | awk -v name="^${POOL}\/ROOT\/${NAME}" -v snapshot="@${SNAPSHOT}$" \
-                       'BEGIN {total = 0}
-                        ($1 ~ name)     {total += $2 * $3}
-                        ($1 ~ snapshot) {total += $4 * $5}
-                        END {
-                             if (total <= 1024)                  {                                      unit = "K"; }
-                        else if (total <= 1048576)               { total = total / 1024;                unit = "M"; }
-                        else if (total <= 1073741824)            { total = total / 1048576;             unit = "G"; }
-                        else if (total <= 1099511627776)         { total = total / 1073741824;          unit = "T"; }
-                        else if (total <= 1125899906842624)      { total = total / 1099511627776;       unit = "P"; }
-                        else if (total <= 1152921504606846976)   { total = total / 1125899906842624;    unit = "E"; }
-                                                            else { total = total / 1152921504606846976; unit = "Z"; }
-                        printf ("%.1f%s",total,unit);
-                        }' )
-          printf "%-${WIDTH_NAME}s %-6s %-10s %6s %-6s " ${NAME} ${ACTIVE} ${MOUNT} ${TOTAL} "static"
-          date -j -f "%a %b %d %H:%M %Y" "${a} ${b} ${d} ${HM} ${y}" +"%Y-%m-%d %H:%M"
+          if [ "${2}" = "-a" ]
+          then
+            # use the USED field from ZFS LIST
+            TOTAL=${USED}
+          else
+            # calculate space total usage for boot environment
+            TOTAL=$( echo "${USED_ALL}" \
+                      | awk -v name="^${POOL}\/ROOT\/${NAME}" -v snapshot="@${SNAPSHOT}$" \
+                        'BEGIN {total = 0}
+                          ($1 ~ name)     {total += $2 * $3}
+                          ($1 ~ snapshot) {total += $4 * $5}
+                          END {
+                               if (total <= 1024)                  {                                      unit = "K"; }
+                          else if (total <= 1048576)               { total = total / 1024;                unit = "M"; }
+                          else if (total <= 1073741824)            { total = total / 1048576;             unit = "G"; }
+                          else if (total <= 1099511627776)         { total = total / 1073741824;          unit = "T"; }
+                          else if (total <= 1125899906842624)      { total = total / 1099511627776;       unit = "P"; }
+                          else if (total <= 1152921504606846976)   { total = total / 1125899906842624;    unit = "E"; }
+                                                              else { total = total / 1152921504606846976; unit = "Z"; }
+                          printf ("%.1f%s",total,unit);
+                          }' )
+          fi
+          if [ "${2}" = "-a" ]
+          then
+            if echo "${DATASET}" | grep -v "@" | grep -q "${POOL}/ROOT/${NAME}" 2> /dev/null
+            then
+              echo ${NAME}
+            fi
+            printf "  %-${WIDTH_NAME}s %-6s %-${WIDTH_MOUNT}s %6s " ${DATASET} ${ACTIVE} ${MOUNT} ${TOTAL}
+            date -j -f "%a %b %d %H:%M %Y" "${a} ${b} ${d} ${HM} ${y}" +"%Y-%m-%d %H:%M"
+          else
+            printf "%-${WIDTH_NAME}s %-6s %-${WIDTH_MOUNT}s %6s " ${NAME} ${ACTIVE} ${MOUNT} ${TOTAL}
+            date -j -f "%a %b %d %H:%M %Y" "${a} ${b} ${d} ${HM} ${y}" +"%Y-%m-%d %H:%M"
+          fi
         done
     ;;
 
@@ -302,7 +347,7 @@ case ${1} in
         then
           # boot environment is not current root and its mounted
           echo "ERROR: Boot environment '${2}' is mounted at '${MNT}'"
-          echo "ERROR: Cannot activate mounted boot environment"
+          echo "ERROR: Cannot activate manually mounted boot environment"
           exit 1
         fi
       fi
@@ -330,7 +375,7 @@ EOF
         then
           zfs set canmount=noauto ${POOL}/ROOT/${2}
           zfs set mountpoint=${TMPMNT} ${POOL}/ROOT/${2}
-          zfs mount ${POOL}/ROOT/${2} 1> /dev/null 2> /dev/null
+          zfs mount ${POOL}/ROOT/${2}
         else
           TMPMNT=${MOUNT}
         fi
@@ -340,20 +385,20 @@ EOF
         then
           LOADER_CONFIGS="${LOADER_CONFIGS} ${TMPMNT}/boot/loader.conf.local"
         fi
-        sed -i '' -E s/"^vfs.root.mountfrom=.*$"/"vfs.root.mountfrom=\"zfs:${POOL}\/ROOT\/${2##*/}\""/g ${LOADER_CONFIGS} 2> /dev/null
+        sed -i '' -E s/"^vfs.root.mountfrom=.*$"/"vfs.root.mountfrom=\"zfs:${POOL}\/ROOT\/${2##*/}\""/g ${LOADER_CONFIGS}
         if [ ${MOUNT} -eq 0 ]
         then
           zfs umount ${POOL}/ROOT/${2}
           zfs set mountpoint=legacy ${POOL}/ROOT/${2}
         fi
       fi
-      if ! zpool set bootfs=${POOL}/ROOT/${2} ${POOL} 2> /dev/null
+      if ! zpool set bootfs=${POOL}/ROOT/${2} ${POOL} 1> /dev/null 2> /dev/null
       then
         echo "ERROR: Failed to activate '${2}' boot environment"
         exit 1
       fi
     fi
-    # disable automatic mount on all inactive datasets
+    # disable automatic mount on all inactive boot environments
     zfs list -H -o name -r ${POOL}/ROOT \
       | grep -v "${POOL}/ROOT/${2}" \
       | while read I
