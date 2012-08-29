@@ -15,7 +15,7 @@
 .\"     @(#)beadm.1
 .\" $FreeBSD$
 .\"
-.Dd June 26, 2012
+.Dd August 29, 2012
 .Dt BEADM 1
 .Os FreeBSD
 .Sh NAME
@@ -38,8 +38,7 @@ destroy
 .Ao Ar beName | beName@snapshot Ac
 .Nm
 list
-.Nm
-mount
+.Op Fl a
 .Nm
 mount
 .Ao Ar beName Ac
@@ -99,12 +98,13 @@ Specifying
 will automatically unmount without confirmation.
 .Pp
 .It Ic list
+.Op Fl a
 .Pp
 Displays all boot environments.
 .PP
-.It Ic mount
-.Pp
-List all mounted datasets for the current boot environment.
+If
+.Fl a
+is used, display mountpoints as well.
 .Pp
 .It Ic mount
 .Ao Ar beName Ac
