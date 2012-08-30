@@ -420,19 +420,19 @@ EOF
     fi
     # disable automatic mount on all inactive boot environments
     zfs list -H -o name -r ${POOL}/ROOT \
-      | grep -v "${POOL}/ROOT/${2}" \
-      | while read I
+      | grep -v "^${POOL}/ROOT/${2}" \
+      | while read NAME
         do
-          zfs set canmount=noauto ${I}
+          zfs set canmount=noauto ${NAME}
         done
     # enable automatic mount for active boot environment and promote it
-    zfs list -H -o name,origin -t filesystem -r ${POOL}/ROOT/${2} \
-      | while read I ORIGIN
+    zfs list -H -o name,origin -r ${POOL}/ROOT/${2} \
+      | while read NAME ORIGIN
         do
-          zfs set canmount=on ${I}
+          zfs set canmount=on ${NAME}
           if [ "${ORIGIN}" != "-" ]
           then
-            zfs promote ${I}
+            zfs promote ${NAME}
           fi
         done
     echo "Activated successfully"
