@@ -430,10 +430,10 @@ EOF
       | while read NAME ORIGIN
         do
           zfs set canmount=on ${NAME}
-          if [ "${ORIGIN}" != "-" ]
-          then
+          while __be_clone ${NAME}
+          do
             zfs promote ${NAME}
-          fi
+          done
         done
     echo "Activated successfully"
     ;;
