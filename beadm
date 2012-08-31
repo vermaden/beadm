@@ -418,16 +418,19 @@ EOF
         exit 1
       fi
     fi
+    # execute ZFS LIST only once
+    ZFS_LIST=$( zfs list -H -o name -r ${POOL}/ROOT )
     # disable automatic mount on all inactive boot environments
-    zfs list -H -o name -r ${POOL}/ROOT \
+    echo "${ZFS_LIST}" \
       | grep -v "^${POOL}/ROOT/${2}" \
       | while read NAME
         do
           zfs set canmount=noauto ${NAME}
         done
     # enable automatic mount for active boot environment and promote it
-    zfs list -H -o name,origin -r ${POOL}/ROOT/${2} \
-      | while read NAME ORIGIN
+    echo "${ZFS_LIST}" \
+      | grep "^${POOL}/ROOT/${2}" \
+      | while read NAME
         do
           zfs set canmount=on ${NAME}
           while __be_clone ${NAME}
