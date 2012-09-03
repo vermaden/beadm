@@ -171,9 +171,75 @@ fi
 case ${1} in
 
   (list) # --------------------------------------------------------------------
-    if [ ${#} -ne 1 -a "${2}" != "-a" ]
+    if [ ${#} -ne 1 -a "${2}" != "-a" -a "${2}" != "-D" ]
     then
       __usage
+    fi
+    if [ "${2}" = "-D" ]
+    then
+      awk -v pool="${POOL}" -v rootfs="${ROOTFS}" -v bootfs="${BOOTFS}" \
+       'function normalize(v) {
+          return substr(v, 1, length(v) - 1) * multiplier[substr(v, length(v))]
+        }
+        function show_units(v) {
+               if(v <= 1024)                  {                              unit = "K"; }
+          else if(v <= 1048576)               { v = v / 1024;                unit = "M"; }
+          else if(v <= 1073741824)            { v = v / 1048576;             unit = "G"; }
+          else if(v <= 1099511627776)         { v = v / 1073741824;          unit = "T"; }
+          else if(v <= 1125899906842624)      { v = v / 1099511627776;       unit = "P"; }
+          else if(v <= 1152921504606846976)   { v = v / 1125899906842624;    unit = "E"; }
+          else                                { v = v / 1152921504606846976; unit = "Z"; }
+          fmt = "%.1f"
+          return sprintf(fmt "%s", v, unit)
+        }
+        function get_bename(v) {
+          sub(bename_begins_with "\/", "", v)
+          sub("/.*", "", v)
+          return v
+        }
+        BEGIN {
+          FS = "\\t"
+          bename_begins_with = pool "/ROOT"
+          multiplier["K"] = 1
+          multiplier["M"] = 1024
+          multiplier["G"] = 1048576
+          multiplier["T"] = 1073741824
+          multiplier["P"] = 1099511627776
+          multiplier["E"] = 1125899906842624
+          multiplier["Z"] = 1152921504606846976
+          mountpoint_length = 10
+          while("zfs list -H -o name,usedds,usedbysnapshots,usedrefreserv,refer,origin -r " bename_begins_with | getline) {
+            bename = get_bename($1)
+            if(! (bename in size)) {
+              l = length(bename)
+              if(l > bename_length) bename_length = l
+              mountpoint = "-"
+              mountline = ""
+              "mount | grep \"^" $1 " \"" | getline mountline
+              split(mountline, mountdata, " ")
+              mountpoint = mountdata[3]
+              mount[bename] = mountpoint
+              l = length(mountpoint)
+              if(l > mountpoint_length) mountpoint_length = l
+              }
+            if($6 == "-") size[bename] += (normalize($2) + normalize($4))
+            else size[bename] += (normalize($2) + normalize($4) + normalize($5))
+          }
+          printf "%-" bename_length "s %-6s %-" mountpoint_length "s %6s %s\n", "BE", "Active", "Mountpoint", "Space", "Created"
+          while("zfs list -H -o name,mountpoint,creation -s creation -d 1 " bename_begins_with | getline) {
+            if($1 !~ /ROOT$/) {
+              active = ""
+                if($1 == rootfs) active = active "N"
+                if($1 == bootfs) active = active "R"
+              if(! active) {active = "-"}
+              bename = get_bename($1)
+              sub("^.*/", "", bename)
+              "date -j -f \"%a %b %d %H:%M %Y\" \"" $3 "\" +\"%Y-%m-%d %H:%M\"" | getline creation
+              printf "%-" bename_length "s %-6s %-" mountpoint_length "s %6s %-6s\n", bename, active, mount[bename], show_units(size[bename]), creation
+            }
+          }
+        }'
+      exit 0
     fi
     if [ "${2}" = "-a" ]
     then
