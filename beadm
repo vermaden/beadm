@@ -43,6 +43,7 @@ __usage() {
   echo "  ${NAME} destroy [-F] beName"
   echo "  ${NAME} destroy [-F] beName@snapshot"
   echo "  ${NAME} list [-a]"
+  echo "  ${NAME} list [-D]"
   echo "  ${NAME} mount beName [mountpoint]"
   echo "  ${NAME} umount [-f] beName"
   echo "  ${NAME} unmount [-f] beName"
