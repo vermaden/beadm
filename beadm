@@ -329,36 +329,36 @@ case ${1} in
                           | grep "^${POOL}\/ROOT\/${NAME}" \
                           | grep -v "@" \
                           | awk \
-                             'BEGIN {overhead = 0}
-                              {overhead += $4 * $5}
-                              END {print overhead}' )
+                             'BEGIN { overhead = 0 }
+                                    { overhead += $4 * $5 }
+                              END   { print overhead }' )
             # calculate snapshots space usage for boot environment
             SNAPS=$( echo "${USED_ALL}" \
                        | grep "^${POOL}\/ROOT\/${NAME}" \
                        | grep "@" \
                        | awk \
-                          'BEGIN {snaps = 0}
-                           {snaps += $6 * $7}
-                           END {print snaps}' )
+                          'BEGIN { snaps = 0 }
+                                 { snaps += $6 * $7 }
+                           END   { print snaps }' )
             # calculate space usage for boot environment datasets
             USED=$( echo "${USED_ALL}" \
                        | awk -v name="^${POOL}\/ROOT\/${NAME}" -v snapshot="@${SNAPSHOT}$" \
-                          'BEGIN {used = 0}
-                           ($1 ~ name)     {used += $2 * $3}
-                           ($1 ~ snapshot) {used += $6 * $7}
-                           END {print used}' )
+                          'BEGIN             { used = 0 }
+                           ( $1 ~ name )     { used += $2 * $3 }
+                           ( $1 ~ snapshot ) { used += $6 * $7 }
+                           END               { print used }' )
             # calculate total space usage for boot environment
             TOTAL=$( echo | awk -v used=${USED} -v snaps=${SNAPS} -v overhead=${OVERHEAD} \
-                             'BEGIN {total = used + overhead - snaps}
+                             'BEGIN { total = used + overhead - snaps }
                               END {
-                                   if (total <= 1024)                  {                                      unit = "K"; }
-                              else if (total <= 1048576)               { total = total / 1024;                unit = "M"; }
-                              else if (total <= 1073741824)            { total = total / 1048576;             unit = "G"; }
-                              else if (total <= 1099511627776)         { total = total / 1073741824;          unit = "T"; }
-                              else if (total <= 1125899906842624)      { total = total / 1099511627776;       unit = "P"; }
-                              else if (total <= 1152921504606846976)   { total = total / 1125899906842624;    unit = "E"; }
-                                                                  else { total = total / 1152921504606846976; unit = "Z"; }
-                              printf ("%.1f%s",total,unit);
+                                   if(total <= 1024)                {                                      unit = "K"; }
+                              else if(total <= 1048576)             { total = total / 1024;                unit = "M"; }
+                              else if(total <= 1073741824)          { total = total / 1048576;             unit = "G"; }
+                              else if(total <= 1099511627776)       { total = total / 1073741824;          unit = "T"; }
+                              else if(total <= 1125899906842624)    { total = total / 1099511627776;       unit = "P"; }
+                              else if(total <= 1152921504606846976) { total = total / 1125899906842624;    unit = "E"; }
+                              else                                  { total = total / 1152921504606846976; unit = "Z"; }
+                              printf("%.1f%s", total, unit);
                               }' )
           fi
           if [ "${2}" = "-a" ]
