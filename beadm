@@ -183,13 +183,13 @@ case ${1} in
           return substr(v, 1, length(v) - 1) * multiplier[substr(v, length(v))]
         }
         function show_units(v) {
-               if(v <= 1024)                  {                              unit = "K"; }
-          else if(v <= 1048576)               { v = v / 1024;                unit = "M"; }
-          else if(v <= 1073741824)            { v = v / 1048576;             unit = "G"; }
-          else if(v <= 1099511627776)         { v = v / 1073741824;          unit = "T"; }
-          else if(v <= 1125899906842624)      { v = v / 1099511627776;       unit = "P"; }
-          else if(v <= 1152921504606846976)   { v = v / 1125899906842624;    unit = "E"; }
-          else                                { v = v / 1152921504606846976; unit = "Z"; }
+               if(v <= 1024)                {                              unit = "K"; }
+          else if(v <= 1048576)             { v = v / 1024;                unit = "M"; }
+          else if(v <= 1073741824)          { v = v / 1048576;             unit = "G"; }
+          else if(v <= 1099511627776)       { v = v / 1073741824;          unit = "T"; }
+          else if(v <= 1125899906842624)    { v = v / 1099511627776;       unit = "P"; }
+          else if(v <= 1152921504606846976) { v = v / 1125899906842624;    unit = "E"; }
+          else                              { v = v / 1152921504606846976; unit = "Z"; }
           fmt = "%.1f"
           return sprintf(fmt "%s", v, unit)
         }
