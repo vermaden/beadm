@@ -15,7 +15,7 @@
 .\"     @(#)beadm.1
 .\" $FreeBSD$
 .\"
-.Dd August 29, 2012
+.Dd September 4, 2012
 .Dt BEADM 1
 .Os FreeBSD
 .Sh NAME
@@ -38,7 +38,7 @@ destroy
 .Ao Ar beName | beName@snapshot Ac
 .Nm
 list
-.Op Fl a
+.Op Fl a | Fl D
 .Nm
 mount
 .Ao Ar beName Ac
@@ -98,13 +98,16 @@ Specifying
 will automatically unmount without confirmation.
 .Pp
 .It Ic list
-.Op Fl a
+.Op Fl a | Fl D
 .Pp
 Displays all boot environments.
 .PP
 If
 .Fl a
 is used, display snapshots as well.
+If
+.Fl D
+is used, display the full space usage for each boot environment, assuming all other boot environments were destroyed.
 .Pp
 .It Ic mount
 .Ao Ar beName Ac
