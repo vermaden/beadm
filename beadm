@@ -264,7 +264,7 @@ case ${1} in
       fi
     fi
     # get list of USEDBYDATASET and USED properties
-    USED_ALL=$( zfs list -H -t all -o name,usedbydataset,usedbysnapshots,used -r sys/ROOT \
+    USED_ALL=$( zfs list -H -t all -o name,usedbydataset,usedbysnapshots,used -r ${POOL}/ROOT \
                   | sed 1d \
                   | sed '/0$/d' \
                   | sed '/-$/d' \
