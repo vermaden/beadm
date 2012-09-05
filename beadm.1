@@ -15,7 +15,7 @@
 .\"     @(#)beadm.1
 .\" $FreeBSD$
 .\"
-.Dd June 26, 2012
+.Dd September 4, 2012
 .Dt BEADM 1
 .Os FreeBSD
 .Sh NAME
@@ -38,8 +38,7 @@ destroy
 .Ao Ar beName | beName@snapshot Ac
 .Nm
 list
-.Nm
-mount
+.Op Fl a | Fl D
 .Nm
 mount
 .Ao Ar beName Ac
@@ -99,12 +98,16 @@ Specifying
 will automatically unmount without confirmation.
 .Pp
 .It Ic list
+.Op Fl a | Fl D
 .Pp
 Displays all boot environments.
 .PP
-.It Ic mount
-.Pp
-List all mounted datasets for the current boot environment.
+If
+.Fl a
+is used, display all datasets and snapshots as well.
+If
+.Fl D
+is used, display the full space usage for each boot environment, assuming all other boot environments were destroyed.
 .Pp
 .It Ic mount
 .Ao Ar beName Ac
@@ -139,14 +142,14 @@ Perform a system upgrade in a
 .Xr jail 8
 .Pp
 Create a new boot environment called
-.Em jailed
+.Em jailed :
 .Pp
 .Dl beadm create -e default jailed
 .Pp
 Set mountpoint for new jail to
-.Pa /usr/jails/jailed
+.Pa /usr/jails/jailed :
 .Pp
-.Dl zfs set mountpoint=/usr/jails/jailed zroot/ROOT/jailed
+.Dl beadm mount jailed /usr/jails/jailed
 .Pp
 The currently active boot environment is now replicated into the jailed system and ready for upgrade.
 Startup the jail, login and perform the normal upgrade process.
