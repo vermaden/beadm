@@ -45,9 +45,9 @@ __usage() {
   echo "  ${NAME} list [-a]"
   echo "  ${NAME} list [-D]"
   echo "  ${NAME} mount beName [mountpoint]"
+  echo "  ${NAME} rename origBeName newBeName"
   echo "  ${NAME} umount [-f] beName"
   echo "  ${NAME} unmount [-f] beName"
-  echo "  ${NAME} rename origBeName newBeName"
   exit 1
 }
 
