@@ -183,10 +183,6 @@ case ${1} in
         (*) __usage    ;;
       esac
     done
-    if [ ${OPTION_a} -eq 1 -a ${OPTION_D} -eq 1 ]
-    then
-      __usage
-    fi
     awk -v POOL="${POOL}" \
         -v ROOTFS="${ROOTFS}" \
         -v BOOTFS="${BOOTFS}" \
