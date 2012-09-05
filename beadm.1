@@ -149,7 +149,7 @@ Create a new boot environment called
 Set mountpoint for new jail to
 .Pa /usr/jails/jailed :
 .Pp
-.Dl zfs set mountpoint=/usr/jails/jailed zroot/ROOT/jailed
+.Dl beadm mount jailed /usr/jails/jailed
 .Pp
 The currently active boot environment is now replicated into the jailed system and ready for upgrade.
 Startup the jail, login and perform the normal upgrade process.
