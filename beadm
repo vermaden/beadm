@@ -45,9 +45,9 @@ __usage() {
   echo "  ${NAME} list [-a]"
   echo "  ${NAME} list [-D]"
   echo "  ${NAME} mount beName [mountpoint]"
+  echo "  ${NAME} rename origBeName newBeName"
   echo "  ${NAME} umount [-f] beName"
   echo "  ${NAME} unmount [-f] beName"
-  echo "  ${NAME} rename origBeName newBeName"
   exit 1
 }
 
@@ -331,8 +331,146 @@ case ${1} in
             }
             printf "%-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", BENAME, ACTIVE, MOUNTPOINT, __show_units(SPACE), CREATION
           }
+<<<<<<< HEAD
         }
       }'
+=======
+        }'
+      exit 0
+    fi
+    if [ "${2}" = "-a" ]
+    then
+      ZFS_LIST=$( zfs list -o name,mountpoint,used,creation -H -t all -r ${POOL}/ROOT | sed 1d )
+    else
+      ZFS_LIST=$( zfs list -o name,mountpoint,used,creation -s creation -H -d 1 -r ${POOL}/ROOT | sed 1d )
+    fi
+    WIDTH_CREATION=$( echo "${ZFS_LIST}" | awk '{print $5}' | wc -L )
+    WIDTH_NAME=$( echo "${ZFS_LIST}" | awk '{print $1}' | wc -L )
+    ZFS_MOUNT_LIST=$( zfs mount | grep "^${POOL}/ROOT/" )
+    if [ "${2}" = "-a" ]
+    then
+      WIDTH_MOUNT=$( echo "${ZFS_MOUNT_LIST}" | awk '{print $2}' | wc -L )
+    else
+      BENAMES=$( echo "${ZFS_LIST}" | awk '{print $1}' | xargs basename | tr '\n' '|' | sed 's/.$//' )
+      WIDTH_MOUNT=$( echo "${ZFS_MOUNT_LIST}" | grep -E "(${BENAMES}) " | awk '{print $2}' | wc -L )
+      WIDTH_NAME=$(( ${WIDTH_NAME} - ${#POOL} - 6 ))
+      if [ ${WIDTH_MOUNT} -lt 10 ]
+      then
+        WIDTH_MOUNT=10
+      fi
+    fi
+    # get list of USEDBYDATASET and USED properties
+    USED_ALL=$( zfs list -H -t all -o name,usedbydataset,usedbysnapshots,used -r ${POOL}/ROOT \
+                  | sed 1d \
+                  | sed '/0$/d' \
+                  | sed '/-$/d' \
+                  | awk '{ gsub("-"," 0 0 ",$2);                 gsub("-"," 0 0 ",$3);                 gsub("-"," 0 0 ",$4);
+                           gsub("K"," 1 ",$2);                   gsub("K"," 1 ",$3);                   gsub("K"," 1 ",$4)
+                           gsub("M"," 1024 ",$2);                gsub("M"," 1024 ",$3);                gsub("M"," 1024 ",$4);
+                           gsub("G"," 1048576 ",$2);             gsub("G"," 1048576 ",$3);             gsub("G"," 1048576 ",$4);
+                           gsub("T"," 1073741824 ",$2);          gsub("T"," 1073741824 ",$3);          gsub("T"," 1073741824 ",$4);
+                           gsub("P"," 1099511627776 ",$2);       gsub("P"," 1099511627776 ",$3);       gsub("P"," 1099511627776 ",$4);
+                           gsub("E"," 1125899906842624 ",$2);    gsub("E"," 1125899906842624 ",$3);    gsub("E"," 1125899906842624 ",$4);
+                           gsub("Z"," 1152921504606846976 ",$2); gsub("Z"," 1152921504606846976 ",$3); gsub("Z"," 1152921504606846976 ",$4);
+                           print $0;
+                         }' )
+    # get the list of names and origins for all boot environments
+    SNAPSHOT_ALL=$( zfs list -H -t all -o name,origin -d 1 ${POOL}/ROOT )
+    if [ "${2}" = "-a" ]
+    then
+      printf "%-${WIDTH_NAME}s   %-6s %-${WIDTH_MOUNT}s %6s %s\n" \
+        BE/Dataset/Snapshot Active Mountpoint Space Created
+    else
+      printf "%-${WIDTH_NAME}s %-6s %-${WIDTH_MOUNT}s %6s %s\n" \
+        BE Active Mountpoint Space Created
+    fi
+    echo "${ZFS_LIST}" \
+      | while read NAME MOUNTPOINT USED a b d HM Y
+        do
+          TOTAL=0
+          DATASET=${NAME}
+          NAME=${NAME##*/}
+          ACTIVE=''
+          if [ "${POOL}/ROOT/${NAME}" = "${ROOTFS}" ]
+          then
+            ACTIVE="${ACTIVE}N"
+            fi
+          if [ "${POOL}/ROOT/${NAME}" = "${BOOTFS}" ]
+          then
+            ACTIVE="${ACTIVE}R"
+          fi
+          if [ -z "${ACTIVE}" ]
+          then
+            ACTIVE="-"
+          fi
+          if [ "${2}" = "-a" ]
+          then
+            MOUNT=$( echo "${ZFS_MOUNT_LIST}" | grep -m 1 "^${DATASET}" | awk '{print $2}' )
+          else
+            MOUNT=$( echo "${ZFS_MOUNT_LIST}" | grep -m 1 "^${POOL}/ROOT/${NAME}" | awk '{print $2}' )
+          fi
+          if [ -z "${MOUNT}" ]
+          then
+            MOUNT="-"
+          fi
+          # get the name of origin snapshot for boot environment
+          SNAPSHOT=$( echo "${SNAPSHOT_ALL}" | awk "/^${POOL}\/ROOT\/${NAME}\t/" | awk -F '@' '{print $2}' )
+          if [ "${2}" = "-a" ]
+          then
+            # use the USED field from ZFS LIST
+            TOTAL=${USED}
+          else
+            # calculate overhead space usage for boot environment
+            OVERHEAD=$( echo "${USED_ALL}" \
+                          | grep "^${POOL}\/ROOT\/${NAME}" \
+                          | grep -v "@" \
+                          | awk \
+                             'BEGIN { overhead = 0 }
+                                    { overhead += $4 * $5 }
+                              END   { print overhead }' )
+            # calculate snapshots space usage for boot environment
+            SNAPS=$( echo "${USED_ALL}" \
+                       | grep "^${POOL}\/ROOT\/${NAME}" \
+                       | grep "@" \
+                       | awk \
+                          'BEGIN { snaps = 0 }
+                                 { snaps += $6 * $7 }
+                           END   { print snaps }' )
+            # calculate space usage for boot environment datasets
+            USED=$( echo "${USED_ALL}" \
+                       | awk -v name="^${POOL}\/ROOT\/${NAME}" -v snapshot="@${SNAPSHOT}$" \
+                          'BEGIN             { used = 0 }
+                           ( $1 ~ name )     { used += $2 * $3 }
+                           ( $1 ~ snapshot ) { used += $6 * $7 }
+                           END               { print used }' )
+            # calculate total space usage for boot environment
+            TOTAL=$( echo | awk -v used=${USED} -v snaps=${SNAPS} -v overhead=${OVERHEAD} \
+                             'BEGIN { total = used + overhead - snaps }
+                              END {
+                                   if(total <= 1024)                {                                      unit = "K"; }
+                              else if(total <= 1048576)             { total = total / 1024;                unit = "M"; }
+                              else if(total <= 1073741824)          { total = total / 1048576;             unit = "G"; }
+                              else if(total <= 1099511627776)       { total = total / 1073741824;          unit = "T"; }
+                              else if(total <= 1125899906842624)    { total = total / 1099511627776;       unit = "P"; }
+                              else if(total <= 1152921504606846976) { total = total / 1125899906842624;    unit = "E"; }
+                              else                                  { total = total / 1152921504606846976; unit = "Z"; }
+                              printf("%.1f%s", total, unit);
+                              }' )
+          fi
+          if [ "${2}" = "-a" ]
+          then
+            if echo "${DATASET}" | grep -v "@" | grep -q "${POOL}/ROOT/${NAME}" 2> /dev/null
+            then
+              echo ${NAME}
+            fi
+            printf "  %-${WIDTH_NAME}s %-6s %-${WIDTH_MOUNT}s %6s " ${DATASET} ${ACTIVE} ${MOUNT} ${TOTAL}
+            date -j -f "%a %b %d %H:%M %Y" "${a} ${b} ${d} ${HM} ${y}" +"%Y-%m-%d %H:%M"
+          else
+            printf "%-${WIDTH_NAME}s %-6s %-${WIDTH_MOUNT}s %6s " ${NAME} ${ACTIVE} ${MOUNT} ${TOTAL}
+            date -j -f "%a %b %d %H:%M %Y" "${a} ${b} ${d} ${HM} ${y}" +"%Y-%m-%d %H:%M"
+          fi
+        done
+>>>>>>> bb2c2929064d014d68658eabbda3f2c78a8a6021
     ;;
 
   (create) # ------------------------------------------------------------------
