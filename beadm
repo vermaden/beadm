@@ -321,7 +321,7 @@ case ${1} in
               if(FSNAME ~ "^" BENAME_BEGINS_WITH "/" BENAME "(/[^@]*)?$") {
                 if((BENAME_BEGINS_WITH "/" BENAME) == FSNAME) {
                   MOUNTPOINT = MOUNTS[FSNAME]
-                  if(!MOUNTPOINT)
+                  if(! MOUNTPOINT)
                     MOUNTPOINT = "-"
                   CREATION = __convert_date(CREATIONS[FSNAME])
                 }
