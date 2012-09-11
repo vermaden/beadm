@@ -189,7 +189,10 @@ case ${1} in
         -v OPTION_a="${OPTION_a}" \
         -v OPTION_D="${OPTION_D}" \
      'function __normalize(VALUE) {
-        return substr(VALUE, 1, length(VALUE) - 1) * MULTIPLIER[substr(VALUE, length(VALUE))]
+        if(VALUE)
+          return substr(VALUE, 1, length(VALUE) - 1) * MULTIPLIER[substr(VALUE, length(VALUE))]
+        else
+          return 0
       }
       function __show_units(VALUE) {
              if(VALUE < 1025)                {                               UNIT = "K"; }
@@ -212,7 +215,6 @@ case ${1} in
         return NEW
       }
       BEGIN {
-        FS = "\\t"
         BENAME_BEGINS_WITH = POOL "/ROOT"
         MULTIPLIER["K"] = 1
         MULTIPLIER["M"] = 1024
@@ -225,36 +227,39 @@ case ${1} in
         FSNAME_LENGTH = 2
         if(OPTION_a == 1)
           FSNAME_LENGTH = 19
+        while("mount" | getline) {
+          if($1 ~ "^" BENAME_BEGINS_WITH)
+            MOUNTS[$1] = $3
+        }
+        FS = "\\t"
         while("zfs list -H -t all -s creation -o name,used,usedds,usedbysnapshots,usedrefreserv,refer,creation,origin -r " BENAME_BEGINS_WITH | getline) {
           FSNAME = $1
           FSNAMES[length(FSNAMES) + 1] = FSNAME
           if(FSNAME != BENAME_BEGINS_WITH) {
-            if(FSNAME ~ "@")
-              SPACES[FSNAME] = __normalize($2) + __normalize($5)
+            USED              = __normalize($2)
+            USEDBYDATASET     = __normalize($3)
+            USEDBYSNAPSHOTS   = __normalize($4)
+            USEDREFRESERV     = __normalize($5)
+            REFER[FSNAME]     = __normalize($6)
+            CREATIONS[FSNAME] = $7
+            ORIGINS[FSNAME]   = $8
+            if(FSNAME ~ /@/)
+              SPACES[FSNAME] = USED + USEDREFRESERV
             else {
-              SPACES[FSNAME] = __normalize($3) + __normalize($5)
+              SPACES[FSNAME] = USEDBYDATASET + USEDBYSNAPSHOTS + USEDREFRESERV
               BE = " " __get_bename(FSNAME) " "
               if(index(BELIST, BE) == 0)
                 BELIST = BELIST " " BE
-            }
-            USEDBYSNAPSHOTS = $4
-            USEDREFRESERV[FSNAME] = __normalize($5)
-            REFER[FSNAME] = __normalize($6)
-            CREATIONS[FSNAME] = $7
-            ORIGINS[FSNAME] = $8
-            if(USEDBYSNAPSHOTS != 0 && USEDBYSNAPSHOTS != "-")
-              SPACES[FSNAME] += __normalize(USEDBYSNAPSHOTS)
-            MOUNTLINE = ""
-            "mount | grep \"^" FSNAME " \"" | getline MOUNTLINE
-            split(MOUNTLINE, MOUNTDATA, " ")
-            MOUNTPOINT = MOUNTDATA[3]
-            if(MOUNTPOINT == "")
-              MOUNTPOINT = "-"
-            MOUNTS[FSNAME] = MOUNTPOINT
-            LM = length(MOUNTPOINT)
-            if((OPTION_a == 0 && FSNAME == (BENAME_BEGINS_WITH "/" __get_bename(FSNAME))) || (OPTION_a == 1 && FSNAME !~ /@/)) {
-              if(LM > MOUNTPOINT_LENGTH)
-                MOUNTPOINT_LENGTH = LM
+              MOUNTPOINT = MOUNTS[FSNAME]
+              if(MOUNTPOINT) {
+                if((OPTION_a == 0 && FSNAME == (BENAME_BEGINS_WITH "/" __get_bename(FSNAME))) || (OPTION_a == 1)) {
+                  LM = length(MOUNTPOINT)
+                  if(LM > MOUNTPOINT_LENGTH)
+                    MOUNTPOINT_LENGTH = LM
+                }
+              }
+              else
+                MOUNTPOINT = "-"
             }
             if(OPTION_a == 1)
               LF = length(FSNAME)
@@ -286,14 +291,17 @@ case ${1} in
                   ACTIVE = ACTIVE "R"
                 if(! ACTIVE)
                   ACTIVE = "-"
-                printf "  %-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", FSNAME, ACTIVE, MOUNTS[FSNAME], __show_units(SPACES[FSNAME]), __convert_date(CREATIONS[FSNAME])
+                MOUNTPOINT = MOUNTS[FSNAME]
+                if(! MOUNTPOINT)
+                  MOUNTPOINT = "-"
+                printf "  %-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", FSNAME, ACTIVE, MOUNTPOINT, __show_units(SPACES[FSNAME]), __convert_date(CREATIONS[FSNAME])
                 ORIGIN = ORIGINS[FSNAME]
                 if(ORIGIN != "-") {
                   if(OPTION_D == 1)
                     SPACE = REFER[ORIGIN]
                   else
                     SPACE = SPACES[ORIGIN]
-                  printf  "  %-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", ORIGIN, "-", MOUNTS[ORIGIN], __show_units(SPACE), __convert_date(CREATIONS[ORIGIN])
+                  printf  "  %-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", ORIGIN, "-", "-", __show_units(SPACE), __convert_date(CREATIONS[ORIGIN])
                 }
               }
             }
@@ -313,6 +321,8 @@ case ${1} in
               if(FSNAME ~ "^" BENAME_BEGINS_WITH "/" BENAME "(/[^@]*)?$") {
                 if((BENAME_BEGINS_WITH "/" BENAME) == FSNAME) {
                   MOUNTPOINT = MOUNTS[FSNAME]
+                  if(!MOUNTPOINT)
+                    MOUNTPOINT = "-"
                   CREATION = __convert_date(CREATIONS[FSNAME])
                 }
                 SPACE += SPACES[FSNAME]
