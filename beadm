@@ -189,10 +189,10 @@ case ${1} in
         -v OPTION_a="${OPTION_a}" \
         -v OPTION_D="${OPTION_D}" \
      'function __normalize(VALUE) {
-        if(VALUE)
-          return substr(VALUE, 1, length(VALUE) - 1) * MULTIPLIER[substr(VALUE, length(VALUE))]
-        else
+        if(VALUE == "-" || VALUE == 0)
           return 0
+        else
+          return substr(VALUE, 1, length(VALUE) - 1) * MULTIPLIER[substr(VALUE, length(VALUE))]
       }
       function __show_units(VALUE) {
              if(VALUE < 1025)                {                               UNIT = "K"; }
@@ -244,7 +244,7 @@ case ${1} in
             CREATIONS[FSNAME] = $7
             ORIGINS[FSNAME]   = $8
             if(FSNAME ~ /@/)
-              SPACES[FSNAME] = USED + USEDREFRESERV
+              SPACES[FSNAME] = USED
             else {
               SPACES[FSNAME] = USEDBYDATASET + USEDBYSNAPSHOTS + USEDREFRESERV
               BE = " " __get_bename(FSNAME) " "
