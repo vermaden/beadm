@@ -242,7 +242,9 @@ case ${1} in
             USEDREFRESERV     = __normalize($5)
             REFER[FSNAME]     = __normalize($6)
             CREATIONS[FSNAME] = $7
-            ORIGINS[FSNAME]   = $8
+            ORIGIN = $8
+            sub(BENAME_BEGINS_WITH "/", "", ORIGIN)
+            ORIGINS[FSNAME]   = "  " ORIGIN
             if(FSNAME ~ /@/)
               SPACES[FSNAME] = USED
             else {
@@ -272,14 +274,17 @@ case ${1} in
         split(BELIST, BENAMES, " ")
         if(OPTION_a == 1) {
           BE_HEAD = "BE/Dataset/Snapshot"
-          FSNAME_LENGTH += 2
+          FSNAME_LENGTH = FSNAME_LENGTH + 1 - length(BENAME_BEGINS_WITH)
+          printf "%-" FSNAME_LENGTH + 2 "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", BE_HEAD, "Active", "Mountpoint", "Space", "Created"
         }
-        else
+        else {
           BE_HEAD = "BE"
-        printf "%-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", BE_HEAD, "Active", "Mountpoint", "Space", "Created"
+          printf "%-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", BE_HEAD, "Active", "Mountpoint", "Space", "Created"
+        }
         for(I = 1; I <= length(BENAMES); I++) {
           BENAME = BENAMES[I]
           if(OPTION_a == 1) {
+            printf "\n"
             print BENAME
             for(J = 1; J <= length(FSNAMES); J++) {
               FSNAME = FSNAMES[J]
@@ -296,7 +301,7 @@ case ${1} in
                   MOUNTPOINT = "-"
                 printf "  %-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", FSNAME, ACTIVE, MOUNTPOINT, __show_units(SPACES[FSNAME]), __convert_date(CREATIONS[FSNAME])
                 ORIGIN = ORIGINS[FSNAME]
-                if(ORIGIN != "-") {
+                if(ORIGIN != "  -") {
                   if(OPTION_D == 1)
                     SPACE = REFER[ORIGIN]
                   else
