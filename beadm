@@ -233,14 +233,14 @@ case ${1} in
         }
         FS = "\\t"
         while("zfs list -H -t all -s creation -o name,used,usedds,usedbysnapshots,usedrefreserv,refer,creation,origin -r " BENAME_BEGINS_WITH | getline) {
-          FSNAME = $1
-          FSNAMES[length(FSNAMES) + 1] = FSNAME
-          if(FSNAME != BENAME_BEGINS_WITH) {
-            USED              = __normalize($2)
-            USEDBYDATASET     = __normalize($3)
-            USEDBYSNAPSHOTS   = __normalize($4)
-            USEDREFRESERV     = __normalize($5)
-            REFER[FSNAME]     = __normalize($6)
+          if($1 != BENAME_BEGINS_WITH) {
+            FSNAME = $1
+            FSNAMES[length(FSNAMES) + 1] = FSNAME
+            USED            = __normalize($2)
+            USEDBYDATASET   = __normalize($3)
+            USEDBYSNAPSHOTS = __normalize($4)
+            USEDREFRESERV   = __normalize($5)
+            REFER[FSNAME]   = __normalize($6)
             CREATIONS[FSNAME] = $7
             ORIGIN = $8
             sub(BENAME_BEGINS_WITH "/", "", ORIGIN)
