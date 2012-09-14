@@ -242,9 +242,6 @@ case ${1} in
             USEDREFRESERV   = __normalize($5)
             REFER[FSNAME]   = __normalize($6)
             CREATIONS[FSNAME] = $7
-            # ORTEMP = $8
-            # sub(BENAME_BEGINS_WITH "/", "", ORTEMP)
-            # ORIGINS[FSNAME]   = "  " ORTEMP
             ORIGINS[FSNAME]   = $8
             if(FSNAME ~ /@/)
               SPACES[FSNAME] = USED
