@@ -242,9 +242,10 @@ case ${1} in
             USEDREFRESERV   = __normalize($5)
             REFER[FSNAME]   = __normalize($6)
             CREATIONS[FSNAME] = $7
-            ORIGIN = $8
-            sub(BENAME_BEGINS_WITH "/", "", ORIGIN)
-            ORIGINS[FSNAME]   = "  " ORIGIN
+            # ORTEMP = $8
+            # sub(BENAME_BEGINS_WITH "/", "", ORTEMP)
+            # ORIGINS[FSNAME]   = "  " ORTEMP
+            ORIGINS[FSNAME]   = $8
             if(FSNAME ~ /@/)
               SPACES[FSNAME] = USED
             else {
@@ -301,12 +302,14 @@ case ${1} in
                   MOUNTPOINT = "-"
                 printf "  %-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", FSNAME, ACTIVE, MOUNTPOINT, __show_units(SPACES[FSNAME]), __convert_date(CREATIONS[FSNAME])
                 ORIGIN = ORIGINS[FSNAME]
-                if(ORIGIN != "  -") {
+                ORIGIN_DISPLAY = ORIGIN
+                sub(BENAME_BEGINS_WITH "/", "", ORIGIN_DISPLAY)
+                if(ORIGIN != "-") {
                   if(OPTION_D == 1)
                     SPACE = REFER[ORIGIN]
                   else
                     SPACE = SPACES[ORIGIN]
-                  printf  "  %-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", ORIGIN, "-", "-", __show_units(SPACE), __convert_date(CREATIONS[ORIGIN])
+                  printf  "  %-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", "  " ORIGIN_DISPLAY, "-", "-", __show_units(SPACE), __convert_date(CREATIONS[ORIGIN])
                 }
               }
             }
