@@ -210,8 +210,9 @@ case ${1} in
         return BENAME
       }
       function __convert_date(DATE) {
-              "date -j -f \"%a %b %d %H:%M %Y\" \"" DATE "\" +\"%Y-%m-%d %H:%M\"" | getline NEW
-        close("date -j -f \"%a %b %d %H:%M %Y\" \"" DATE "\" +\"%Y-%m-%d %H:%M\"")
+        CMD_DATE = "date -j -f \"%a %b %d %H:%M %Y\" \"" DATE "\" +\"%Y-%m-%d %H:%M\""
+        CMD_DATE | getline NEW
+        close(CMD_DATE)
         return NEW
       }
       BEGIN {
@@ -227,20 +228,22 @@ case ${1} in
         FSNAME_LENGTH = 2
         if(OPTION_a == 1)
           FSNAME_LENGTH = 19
-        while("mount" | getline) {
+        CMD_MOUNT="mount"
+        while(CMD_MOUNT | getline)
           if($1 ~ "^" BENAME_BEGINS_WITH)
             MOUNTS[$1] = $3
-        }
+        close(CMD_MOUNT)
         FS = "\\t"
-        while("zfs list -H -t all -s creation -o name,used,usedds,usedbysnapshots,usedrefreserv,refer,creation,origin -r " BENAME_BEGINS_WITH | getline) {
+        CMD_ZFS_LIST = "zfs list -H -t all -s creation -o name,used,usedds,usedbysnapshots,usedrefreserv,refer,creation,origin -r "
+        while(CMD_ZFS_LIST BENAME_BEGINS_WITH | getline) {
           if($1 != BENAME_BEGINS_WITH) {
             FSNAME = $1
             FSNAMES[length(FSNAMES) + 1] = FSNAME
-            USED            = __normalize($2)
-            USEDBYDATASET   = __normalize($3)
-            USEDBYSNAPSHOTS = __normalize($4)
-            USEDREFRESERV   = __normalize($5)
-            REFER[FSNAME]   = __normalize($6)
+            USED              = __normalize($2)
+            USEDBYDATASET     = __normalize($3)
+            USEDBYSNAPSHOTS   = __normalize($4)
+            USEDREFRESERV     = __normalize($5)
+            REFER[FSNAME]     = __normalize($6)
             CREATIONS[FSNAME] = $7
             ORIGINS[FSNAME]   = $8
             if(FSNAME ~ /@/)
@@ -269,10 +272,10 @@ case ${1} in
               FSNAME_LENGTH = LF
           }
         }
+        close(CMD_ZFS_LIST)
         split(BELIST, BENAMES, " ")
         if(OPTION_a == 1) {
           BE_HEAD = "BE/Dataset/Snapshot"
-          FSNAME_LENGTH = FSNAME_LENGTH + 1 - length(BENAME_BEGINS_WITH)
           printf "%-" FSNAME_LENGTH + 2 "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", BE_HEAD, "Active", "Mountpoint", "Space", "Created"
         }
         else {
@@ -286,7 +289,7 @@ case ${1} in
             print BENAME
             for(J = 1; J <= length(FSNAMES); J++) {
               FSNAME = FSNAMES[J]
-              if(FSNAME ~ "^" BENAME_BEGINS_WITH "/" BENAME "(/[^@]*)?$") {
+              if(FSNAME ~ "^" BENAME_BEGINS_WITH "/" BENAME ) {
                 ACTIVE = ""
                 if(FSNAME == ROOTFS)
                   ACTIVE = ACTIVE "N"
