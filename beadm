@@ -174,12 +174,15 @@ case ${1} in
   (list) # --------------------------------------------------------------------
     OPTION_a=0
     OPTION_D=0
+    OPTION_s=0
     shift
-    while getopts "aD" OPT
+    while getopts "aDs" OPT
     do
       case ${OPT} in
         (a) OPTION_a=1 ;;
         (D) OPTION_D=1 ;;
+        (s) OPTION_s=1
+            OPTION_a=1 ;;
         (*) __usage    ;;
       esac
     done
@@ -188,6 +191,7 @@ case ${1} in
         -v BOOTFS="${BOOTFS}" \
         -v OPTION_a="${OPTION_a}" \
         -v OPTION_D="${OPTION_D}" \
+        -v OPTION_s="${OPTION_s}" \
      'function __normalize(VALUE) {
         if(VALUE == "-" || VALUE == 0)
           return 0
@@ -282,6 +286,8 @@ case ${1} in
           BE_HEAD = "BE"
           printf "%-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", BE_HEAD, "Active", "Mountpoint", "Space", "Created"
         }
+        if(OPTION_s != 1)
+          SNAPSHOT_FILTER = "(/[^@]*)?$"
         for(I = 1; I <= length(BENAMES); I++) {
           BENAME = BENAMES[I]
           if(OPTION_a == 1) {
@@ -289,7 +295,7 @@ case ${1} in
             print BENAME
             for(J = 1; J <= length(FSNAMES); J++) {
               FSNAME = FSNAMES[J]
-              if(FSNAME ~ "^" BENAME_BEGINS_WITH "/" BENAME ) {
+              if(FSNAME ~ "^" BENAME_BEGINS_WITH "/" BENAME SNAPSHOT_FILTER) {
                 ACTIVE = ""
                 if(FSNAME == ROOTFS)
                   ACTIVE = ACTIVE "N"
