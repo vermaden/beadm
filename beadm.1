@@ -38,7 +38,9 @@ destroy
 .Ao Ar beName | beName@snapshot Ac
 .Nm
 list
-.Op Fl a | Fl D
+.Op Fl a
+.Op Fl D
+.Op Fl s
 .Nm
 mount
 .Ao Ar beName Ac
@@ -98,17 +100,22 @@ Specifying
 will automatically unmount without confirmation.
 .Pp
 .It Ic list
-.Op Fl a | Fl D
+.Op Fl a
+.Op Fl D
+.Op Fl s
 .Pp
 Displays all boot environments.
 The Active field indicates whether the boot environment is active now (N); active on reboot (R); or both (NR).
 .PP
 If
 .Fl a
-is used, display all datasets and snapshots as well.
+is used, display all datasets.
 If
 .Fl D
 is used, display the full space usage for each boot environment, assuming all other boot environments were destroyed.
+If
+.Fl s
+is used, display all snapshots as well.
 .Pp
 .It Ic mount
 .Ao Ar beName Ac
