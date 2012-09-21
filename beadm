@@ -252,7 +252,9 @@ case ${1} in
             if(FSNAME ~ /@/)
               SPACES[FSNAME] = USED
             else {
-              SPACES[FSNAME] = USEDBYDATASET + USEDBYSNAPSHOTS + USEDREFRESERV
+              SPACES[FSNAME] = USEDBYDATASET + USEDREFRESERV
+              if(OPTION_D != 1)
+                SPACES[FSNAME] += USEDBYSNAPSHOTS
               BE = " " __get_bename(FSNAME) " "
               if(index(BELIST, BE) == 0)
                 BELIST = BELIST " " BE
@@ -338,13 +340,14 @@ case ${1} in
                     MOUNTPOINT = "-"
                   CREATION = __convert_date(CREATIONS[FSNAME])
                 }
-                SPACE += SPACES[FSNAME]
                 ORIGIN = ORIGINS[FSNAME]
-                if(ORIGIN != "-") {
+                if(ORIGIN == "-")
+                  SPACE += SPACES[FSNAME]
+                else {
                   if(OPTION_D == 1)
-                    SPACE += REFER[ORIGIN]
+                    SPACE += REFER[FSNAME]
                   else
-                    SPACE += SPACES[ORIGIN]
+                    SPACE += SPACES[FSNAME] + SPACES[ORIGIN]
                 }
               }
             }
