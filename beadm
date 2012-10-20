@@ -42,7 +42,7 @@ __usage() {
   echo "  ${NAME} create beName@snapshot"
   echo "  ${NAME} destroy [-F] beName"
   echo "  ${NAME} destroy [-F] beName@snapshot"
-  echo "  ${NAME} list [-a] [-s] [-D]"
+  echo "  ${NAME} list [-a] [-s] [-D] -[H]"
   echo "  ${NAME} mount beName [mountpoint]"
   echo "  ${NAME} umount [-f] beName"
   echo "  ${NAME} unmount [-f] beName"
@@ -174,13 +174,15 @@ case ${1} in
     OPTION_a=0
     OPTION_D=0
     OPTION_s=0
+    OPTION_H=0
     shift
-    while getopts "aDs" OPT
+    while getopts "aDHs" OPT
     do
       case ${OPT} in
         (a) OPTION_a=1 ;;
         (D) OPTION_D=1 ;;
-        (s) OPTION_s=1
+        (H) OPTION_H=1 ;;
+        (s) OPTION_s=1 
             OPTION_a=1 ;;
         (*) __usage    ;;
       esac
@@ -190,6 +192,7 @@ case ${1} in
         -v BOOTFS="${BOOTFS}" \
         -v OPTION_a="${OPTION_a}" \
         -v OPTION_D="${OPTION_D}" \
+        -v OPTION_H="${OPTION_H}" \
         -v OPTION_s="${OPTION_s}" \
      'function __normalize(VALUE) {
         if(VALUE == "-" || VALUE == 0)
@@ -283,6 +286,11 @@ case ${1} in
           BE_HEAD = "BE/Dataset/Snapshot"
           printf "%-" FSNAME_LENGTH + 2 "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", BE_HEAD, "Active", "Mountpoint", "Space", "Created"
         }
+### -H hack
+         else if (OPTION_H == 1) {
+           BE_HEAD = ""
+          }
+### -H hack    
         else {
           BE_HEAD = "BE"
           printf "%-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", BE_HEAD, "Active", "Mountpoint", "Space", "Created"
@@ -351,6 +359,15 @@ case ${1} in
                 }
               }
             }
+### -H hack
+        if(OPTION_H == 1) {
+          for(I = 1; I <= length(BENAMES); I++) {
+          BENAME = BENAMES[I]
+          print BENAME
+         }
+        exit
+        }
+### -H hack
             printf "%-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", BENAME, ACTIVE, MOUNTPOINT, __show_units(SPACE), CREATION
           }
         }
