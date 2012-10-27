@@ -102,6 +102,7 @@ will automatically unmount without confirmation.
 .It Ic list
 .Op Fl a
 .Op Fl D
+.Op Fl H
 .Op Fl s
 .Pp
 Displays all boot environments.
@@ -113,6 +114,9 @@ is used, display all datasets.
 If
 .Fl D
 is used, display the full space usage for each boot environment, assuming all other boot environments were destroyed.
+The
+.Fl H
+option is used for scripting. It does not print headers and separate fields by a single tab instead of arbitrary white space.
 If
 .Fl s
 is used, display all snapshots as well.
