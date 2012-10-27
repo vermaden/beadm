@@ -42,10 +42,11 @@ __usage() {
   echo "  ${NAME} create beName@snapshot"
   echo "  ${NAME} destroy [-F] beName"
   echo "  ${NAME} destroy [-F] beName@snapshot"
-  echo "  ${NAME} list [-a] [-s] [-D]"
+  echo "  ${NAME} list [-a] [-s] [-D] [-H]"
   echo "  ${NAME} mount beName [mountpoint]"
   echo "  ${NAME} umount [-f] beName"
   echo "  ${NAME} unmount [-f] beName"
+
   echo "  ${NAME} rename origBeName newBeName"
   exit 1
 }
@@ -175,11 +176,12 @@ case ${1} in
     OPTION_D=0
     OPTION_s=0
     shift
-    while getopts "aDs" OPT
+    while getopts "aDHs" OPT
     do
       case ${OPT} in
         (a) OPTION_a=1 ;;
         (D) OPTION_D=1 ;;
+        (H) OPTION_H=1 ;;
         (s) OPTION_s=1
             OPTION_a=1 ;;
         (*) __usage    ;;
@@ -190,6 +192,7 @@ case ${1} in
         -v BOOTFS="${BOOTFS}" \
         -v OPTION_a="${OPTION_a}" \
         -v OPTION_D="${OPTION_D}" \
+        -v OPTION_H="${OPTION_H}" \
         -v OPTION_s="${OPTION_s}" \
      'function __normalize(VALUE) {
         if(VALUE == "-" || VALUE == 0)
@@ -198,7 +201,7 @@ case ${1} in
           return substr(VALUE, 1, length(VALUE) - 1) * MULTIPLIER[substr(VALUE, length(VALUE))]
       }
       function __show_units(VALUE) {
-             if(VALUE < 1025)                {                               UNIT = "K"; }
+             if(VALUE < 1024)                {                               UNIT = "K"; }
         else if(VALUE < 1048576)             { VALUE /= 1024;                UNIT = "M"; }
         else if(VALUE < 1073741824)          { VALUE /= 1048576;             UNIT = "G"; }
         else if(VALUE < 1099511627776)       { VALUE /= 1073741824;          UNIT = "T"; }
@@ -283,6 +286,8 @@ case ${1} in
           BE_HEAD = "BE/Dataset/Snapshot"
           printf "%-" FSNAME_LENGTH + 2 "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", BE_HEAD, "Active", "Mountpoint", "Space", "Created"
         }
+        else if(OPTION_H == 1)
+          BE_HEAD = ""
         else {
           BE_HEAD = "BE"
           printf "%-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", BE_HEAD, "Active", "Mountpoint", "Space", "Created"
@@ -351,7 +356,10 @@ case ${1} in
                 }
               }
             }
-            printf "%-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", BENAME, ACTIVE, MOUNTPOINT, __show_units(SPACE), CREATION
+            if(OPTION_H == 1)
+              printf "%s\t%s\t%s\t%s\t%s\n", BENAME, ACTIVE, MOUNTPOINT, __show_units(SPACE), CREATION
+            else
+              printf "%-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", BENAME, ACTIVE, MOUNTPOINT, __show_units(SPACE), CREATION
           }
         }
       }'
@@ -470,14 +478,15 @@ EOF
     ZFS_LIST=$( zfs list -H -o name -r ${POOL}/ROOT )
     # disable automatic mount on all inactive boot environments
     echo "${ZFS_LIST}" \
-      | grep -v "^${POOL}/ROOT/${2}" \
+      | grep -v "^${POOL}/ROOT/${2}$" \
+      | grep -v "^${POOL}/ROOT/${2}/" \
       | while read NAME
         do
           zfs set canmount=noauto ${NAME}
         done
     # enable automatic mount for active boot environment and promote it
     echo "${ZFS_LIST}" \
-      | grep "^${POOL}/ROOT/${2}" \
+      | grep -E "^${POOL}/ROOT/${2}(/|$)" \
       | while read NAME
         do
           zfs set canmount=on ${NAME}
@@ -634,7 +643,7 @@ EOF
     echo "Renamed successfully"
     ;;
 
-  (mount) # -------------------------------------------------------------------
+  (mount|chroot) # ------------------------------------------------------------
     if [ ${#} -eq 2 ]
     then
       TARGET=$( mktemp -d /tmp/tmp.XXXXXX )
@@ -714,8 +723,8 @@ EOF
       exit 1
     fi
     mount \
-      | grep "^${POOL}/ROOT/${2}" \
       | awk '{print $1}' \
+      | grep "^${POOL}/ROOT/${2}(/|$)" \
       | sort -n -r \
       | while read FS
         do
