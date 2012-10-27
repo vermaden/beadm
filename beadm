@@ -46,7 +46,6 @@ __usage() {
   echo "  ${NAME} mount beName [mountpoint]"
   echo "  ${NAME} umount [-f] beName"
   echo "  ${NAME} unmount [-f] beName"
-
   echo "  ${NAME} rename origBeName newBeName"
   exit 1
 }
@@ -643,7 +642,7 @@ EOF
     echo "Renamed successfully"
     ;;
 
-  (mount|chroot) # ------------------------------------------------------------
+  (mount) # ------------------------------------------------------------
     if [ ${#} -eq 2 ]
     then
       TARGET=$( mktemp -d /tmp/tmp.XXXXXX )
