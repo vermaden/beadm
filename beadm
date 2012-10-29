@@ -36,17 +36,14 @@ fi
 __usage() {
   local NAME=${0##*/}
   echo "usage:"
-  echo "  ${NAME} activate beName"
-  echo "  ${NAME} create [-e nonActiveBe] beName"
-  echo "  ${NAME} create [-e beName@snapshot] beName"
-  echo "  ${NAME} create beName@snapshot"
-  echo "  ${NAME} destroy [-F] beName"
-  echo "  ${NAME} destroy [-F] beName@snapshot"
+  echo "  ${NAME} activate <beName>"
+  echo "  ${NAME} create [-e nonActiveBe | -e beName@snapshot] <beName>"
+  echo "  ${NAME} create <beName@snapshot>"
+  echo "  ${NAME} destroy [-F] <beName | beName@snapshot>"
   echo "  ${NAME} list [-a] [-s] [-D] [-H]"
-  echo "  ${NAME} mount beName [mountpoint]"
-  echo "  ${NAME} umount [-f] beName"
-  echo "  ${NAME} unmount [-f] beName"
-  echo "  ${NAME} rename origBeName newBeName"
+  echo "  ${NAME} rename <origBeName> <newBeName>"
+  echo "  ${NAME} mount <beName> [mountpoint]"
+  echo "  ${NAME} { umount | unmount } [-f] <beName>"
   exit 1
 }
 
@@ -723,7 +720,7 @@ EOF
     fi
     mount \
       | awk '{print $1}' \
-      | grep "^${POOL}/ROOT/${2}(/|$)" \
+      | grep -E "^${POOL}/ROOT/${2}(/|$)" \
       | sort -n -r \
       | while read FS
         do

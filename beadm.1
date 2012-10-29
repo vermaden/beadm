@@ -40,6 +40,7 @@ destroy
 list
 .Op Fl a
 .Op Fl D
+.Op Fl H
 .Op Fl s
 .Nm
 mount
@@ -191,6 +192,23 @@ A HOWTO guide is posted at the FreeBSD forums:
 .Xr beadm 1M
 originally appeared in Solaris.
 .Sh AUTHORS
-.An Slawomir Wojciech Wojtczak (vermaden) Aq vermaden@interia.pl
-.An Bryan Drewery Aq bryan@shatow.net
-wrote this manual page and contributed child dataset fixes
+.Bl -bullet
+.It
+Slawomir Wojciech Wojtczak (vermaden)
+.Ar vermaden@interia.pl
+.Pp
+Creator and maintainer of
+.Nm .
+.It
+Bryan Drewery (bdrewery)
+.Ar bryan@shatow.net
+.Pp
+Wrote this manual page and contributed child dataset fixes.
+.It
+Mike Clarke (rawthey)
+.Ar jmc-fbsd@milibyte.co.uk
+.Pp
+Wrote fast implementation of
+.Nm Ar list .
+.Pp
+Contributed a lot of fixes and usability changes.
