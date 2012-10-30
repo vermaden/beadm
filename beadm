@@ -426,7 +426,7 @@ case ${1} in
       # do not change root (/) mounted boot environment mountpoint
       if [ "${ROOTFS}" != "${POOL}/ROOT/${2}" ]
       then
-        TMPMNT=$( mktemp -d /tmp/tmp.XXXXXX )
+        TMPMNT=$( mktemp -d /tmp/beadm.${2}.XXXXXX )
         if ! mkdir -p ${TMPMNT} 2> /dev/null
         then
           echo "ERROR: Cannot create '${TMPMNT}' directory"
@@ -642,7 +642,7 @@ EOF
   (mount) # ------------------------------------------------------------
     if [ ${#} -eq 2 ]
     then
-      TARGET=$( mktemp -d /tmp/tmp.XXXXXX )
+      TARGET=$( mktemp -d /tmp/beadm.${2}.XXXXXX )
     elif [ ${#} -eq 3 ]
     then
       TARGET=${3}
@@ -668,7 +668,7 @@ EOF
     fi
     PREFIX=$( echo ${POOL}/ROOT/${2}/ | sed 's/\//\\\//g' )
     zfs list -H -o name,mountpoint -r ${POOL}/ROOT/${2} \
-      | grep -v "legacy$" \
+      | grep -v -E "[[:space:]](legacy|none)$" \
       | sort -n \
       | grep -E "^${POOL}/ROOT/${2}/" \
       | while read FS MOUNTPOINT
@@ -678,12 +678,14 @@ EOF
             INHERIT=$( zfs get -H -o source mountpoint ${FS} )
             if [ "${INHERIT}" = "local" ]
             then
-              if [ "${MOUNTPOINT}" = "legacy" ]
-              then
-                continue
-              else
-                MOUNTPOINT="/$( echo "${FS}" | sed s/"${PREFIX}"//g )"
-              fi
+              case ${MOUNTPOINT} in
+                (legacy|none)
+                  continue
+                  ;;
+                (*)
+                  MOUNTPOINT="/$( echo "${FS}" | sed s/"${PREFIX}"//g )"
+                  ;;
+              esac
             fi
           fi
           if ! mkdir -p ${TARGET}${MOUNTPOINT} 1> /dev/null 2> /dev/null
