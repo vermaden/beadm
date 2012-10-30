@@ -426,7 +426,7 @@ case ${1} in
       # do not change root (/) mounted boot environment mountpoint
       if [ "${ROOTFS}" != "${POOL}/ROOT/${2}" ]
       then
-        TMPMNT=$( mktemp -d /tmp/beadm.${2}.XXXXXX )
+        TMPMNT=$( mktemp -d /tmp/BE-${2}.XXXXXX )
         if ! mkdir -p ${TMPMNT} 2> /dev/null
         then
           echo "ERROR: Cannot create '${TMPMNT}' directory"
@@ -642,7 +642,7 @@ EOF
   (mount) # ------------------------------------------------------------
     if [ ${#} -eq 2 ]
     then
-      TARGET=$( mktemp -d /tmp/beadm.${2}.XXXXXX )
+      TARGET=$( mktemp -d /tmp/BE-${2}.XXXXXX )
     elif [ ${#} -eq 3 ]
     then
       TARGET=${3}
@@ -720,7 +720,9 @@ EOF
       echo "Boot environment '${2}' is not mounted"
       exit 1
     fi
-    mount \
+    MOUNT=$( mount )
+    MOUNTPOINT=$( echo "${MOUNT}" | grep -m 1 "^${POOL}/ROOT/${2} on " | awk '{print $3}' )
+    echo "${MOUNT}" \
       | awk '{print $1}' \
       | grep -E "^${POOL}/ROOT/${2}(/|$)" \
       | sort -n -r \
@@ -733,6 +735,10 @@ EOF
           fi
         done
     echo "Unmounted successfully"
+    if [ $( find ${MOUNTPOINT} | head | wc -l | bc ) -eq 1 ]
+    then
+      rm -r ${MOUNTPOINT}
+    fi
     ;;
 
   (*) # -----------------------------------------------------------------------
