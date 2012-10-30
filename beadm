@@ -735,9 +735,14 @@ EOF
           fi
         done
     echo "Unmounted successfully"
-    if [ $( find ${MOUNTPOINT} | head | wc -l | bc ) -eq 1 ]
+    # only delete the temporary mountpoint directory
+    if echo "${MOUNTPOINT}" | grep -q "/tmp/BE-${2}." 1> /dev/null 2> /dev/null
     then
-      rm -r ${MOUNTPOINT}
+      # delete only when it is an empty directory
+      if [ $( find ${MOUNTPOINT} | head | wc -l | bc ) -eq 1 ]
+      then
+        rm -r ${MOUNTPOINT}
+      fi
     fi
     ;;
 
