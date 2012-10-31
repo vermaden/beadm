@@ -426,7 +426,7 @@ case ${1} in
       # do not change root (/) mounted boot environment mountpoint
       if [ "${ROOTFS}" != "${POOL}/ROOT/${2}" ]
       then
-        TMPMNT=$( mktemp -d /tmp/BE-${2}.XXXXXX )
+        TMPMNT=$( mktemp -d -t BE-${2} )
         if ! mkdir -p ${TMPMNT} 2> /dev/null
         then
           echo "ERROR: Cannot create '${TMPMNT}' directory"
@@ -642,7 +642,7 @@ EOF
   (mount) # ------------------------------------------------------------
     if [ ${#} -eq 2 ]
     then
-      TARGET=$( mktemp -d /tmp/BE-${2}.XXXXXX )
+      TARGET=$( mktemp -d -t BE-${2} )
     elif [ ${#} -eq 3 ]
     then
       TARGET=${3}
@@ -736,7 +736,7 @@ EOF
         done
     echo "Unmounted successfully"
     # only delete the temporary mountpoint directory
-    if echo "${MOUNTPOINT}" | grep -q "/tmp/BE-${2}." 1> /dev/null 2> /dev/null
+    if echo "${MOUNTPOINT}" | grep -q -E "/BE-${2}\.[a-zA-Z0-9]{8}" 1> /dev/null 2> /dev/null
     then
       # delete only when it is an empty directory
       if [ $( find ${MOUNTPOINT} | head | wc -l | bc ) -eq 1 ]
