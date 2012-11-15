@@ -539,7 +539,7 @@ EOF
           if __be_clone ${POOL}/ROOT/${DESTROY}
           then
             # promote clones dependent on snapshots used by destroyed boot environment
-            zfs list -H -t all -o name,origin \
+            zfs list -H -t all -o name,origin -r ${POOL} \
               | while read NAME ORIGIN
                 do
                   if echo "${ORIGIN}" | grep -q -E "${POOL}/ROOT/${DESTROY}(/.*@|@)" 2> /dev/null
@@ -582,7 +582,7 @@ EOF
           if __be_clone ${POOL}/ROOT/${DESTROY}
           then
             # promote datasets dependent on origins used by destroyed boot environment
-            ALL_ORIGINS=$( zfs list -H -t all -o name,origin )
+            ALL_ORIGINS=$( zfs list -H -t all -o name,origin -r ${POOL} )
             echo "${ORIGIN_SNAPSHOTS}" \
               | while read S
                 do
@@ -596,7 +596,7 @@ EOF
                 done
           fi
           # destroy origins used by destroyed boot environment
-          SNAPSHOTS=$( zfs list -H -t snapshot -o name )
+          SNAPSHOTS=$( zfs list -H -t snapshot -o name -r ${POOL} )
           echo "${ORIGIN_SNAPSHOTS}" \
             | while read S
               do
