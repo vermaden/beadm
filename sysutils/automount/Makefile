@@ -1,12 +1,12 @@
 # New ports collection Makefile for: automount
-# Date created:                      04 March 2012
+# Date created:                      10 January 2013
 # Whom:                              Slawomir Wojciech Wojtczak <vermaden@interia.pl>
 #
 # $FreeBSD$
 #
 
 PORTNAME=     automount
-PORTVERSION=  1.3.1
+PORTVERSION=  1.4.1
 CATEGORIES=   sysutils
 MASTER_SITES= https://raw.github.com/vermaden/automount/master/
 
