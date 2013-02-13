@@ -194,21 +194,23 @@ __check_already_mounted() { # 1=(-d|-m) 2=(DEV|MNT)
   esac
 }
 
-if [ "${BLACKLIST}" != "" ]
-then
-  for I in ${BLACKLIST}
-  do
-    if [ ${2} = "${I}" ]
-    then
-      exit 0
-    fi
-  done
-fi
-
 DEV=/dev/${1}
 
 case ${2} in
   (attach)
+    __log "${DEV}: attach"
+    if [ "${BLACKLIST}" != "" ]
+      then
+      __log "${DEV}: using BLACKLIST='${BLACKLIST}'"
+      for I in ${BLACKLIST}
+      do
+        if [ ${1} = "${I}" ]
+        then
+          __log "${DEV}: device blocked by BLACKLIST"
+          exit 0
+        fi
+      done
+    fi
     ADD=0
     MNT="${MNTPREFIX}/${1}"
     __check_already_mounted -d ${DEV}
@@ -358,6 +360,7 @@ case ${2} in
     ;;
 
   (detach)
+    __log "${DEV}: detach"
     grep -E "${MNTPREFIX}/${1}$" ${STATE} \
       | while read DEV PROVIDER MNT
         do
@@ -375,7 +378,6 @@ case ${2} in
           unset TARGET
           __log "${DEV}: umount"
         done
-    __log "${DEV}: detach"
     __remove_dir "${MNTPREFIX}/${1}"
     __log "${DEV}: mount point '${MNTPREFIX}/${1}' removed"
     ;;
