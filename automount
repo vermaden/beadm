@@ -96,9 +96,19 @@ REMOVEDIRS (set to NO by default)
 
   example: REMOVEDIRS="YES"
 
+BLACKLIST (unset by default)
+  The automount will ignore devices defined here.
+
+  example: BLACKLIST="da0 da3"
 EOF
   exit 0
 }
+
+if [ "${1}" = "--version" ]
+then
+  echo "automount 1.4.2 2013/02/13"
+  exit 0
+fi
 
 if [ "${1}" = "-h" -o "${1}" = "--help" -o ${#} -eq 0 -o ${#} -eq 1 ]
 then
@@ -184,6 +194,17 @@ __check_already_mounted() { # 1=(-d|-m) 2=(DEV|MNT)
   esac
 }
 
+if [ "${BLACKLIST}" != "" ]
+then
+  for I in ${BLACKLIST}
+  do
+    if [ ${2} = "${I}" ]
+    then
+      exit 0
+    fi
+  done
+fi
+
 DEV=/dev/${1}
 
 case ${2} in
@@ -201,7 +222,7 @@ case ${2} in
       sleep 0.2
     done
     case $( file -b -L -s ${DEV} | sed -E 's/label:\ \".*\"//g' ) in
-      (*FAT*) # must be before NTFS section: newfs_msdos -O NTFS -L NTFS
+      (*FAT*) # must be before NTFS section because: newfs_msdos -O NTFS -L NTFS
         __create_mount_point ${DEV}
         fsck_msdosfs -y ${DEV} \
           | while read LINE
@@ -331,8 +352,7 @@ case ${2} in
       __state_add ${DEV} ${PROVIDER} ${MNT}
       if [ "${USER}" != 0 -a "${FM}" != 0 ]
       then
-        # su - ${USER} -c "env DISPLAY=:0 ${FM} ${MNT} &"
-        su - ${USER} -c "env DISPLAY=:0 ${FM} &"
+        su - ${USER} -c "env DISPLAY=:0 ${FM} ${MNT} &"
       fi
     fi
     ;;
