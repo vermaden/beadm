@@ -35,6 +35,7 @@ It needs these ports to mount NTFS/exFAT/EXT4 respectively:
  o sysutils/fusefs-ntfs
  o sysutils/fusefs-exfat
  o sysutils/fusefs-ext4fuse
+ o sysutils/e2fsprogs
 
 By default it mounts/unmounts all removable media but
 it is possible to set some additional options at the
@@ -99,14 +100,25 @@ REMOVEDIRS (set to NO by default)
 BLACKLIST (unset by default)
   The automount will ignore devices defined here.
 
-  example: BLACKLIST="da0 da3"
+  example: BLACKLIST="da0 da3s1a"
+
+TIMEOUT (set to 8 by default)
+  Do not wait longer then the specified timeout for
+  the device node to appear in /dev and be accessible.
+
+  example: TIMEOUT="8"
+
+DELAY (set to 0.3 seconds by default)
+  How often to check for device availability.
+
+  example: DELAY="2.5"
 EOF
   exit 0
 }
 
 if [ "${1}" = "--version" ]
 then
-  echo "automount 1.4.2 2013/02/13"
+  echo "automount 1.4.2 2013/02/15"
   exit 0
 fi
 
@@ -131,6 +143,8 @@ fi
 : ${REMOVEDIRS="NO"}                  # remove empty dirs under ${MNTPREFIX}
 : ${USER="0"}                         # which user to use for popup
 : ${FM="0"}                           # which file manager to use
+: ${TIMEOUT="8"}                      # stop waiting for device after that time
+: ${DELAY="0.3"}                      # check for the device node that often
 
 if [ "${USERUMOUNT}" = YES ]
 then
@@ -194,6 +208,25 @@ __check_already_mounted() { # 1=(-d|-m) 2=(DEV|MNT)
   esac
 }
 
+__wait_for_device() { # 1=DEV
+  local COUNT=0
+  while ! head -c 1 ${1} 1> /dev/null 2> /dev/null
+  do
+    sleep ${DELAY}
+    local COUNT=$( echo ${COUNT} + ${DELAY} | bc -l )
+    if ! echo ${COUNT} | grep -q -E '^[0-9]'
+    then
+      local COUNT=0${COUNT}
+    fi
+    local COUNT_INT=$( echo ${COUNT} | cut -d '.' -f 1 )
+    if [ ${COUNT_INT} -gt ${TIMEOUT} ]
+    then
+      __log "${DEV}: device node not available"
+      exit 0
+    fi
+  done
+}
+
 DEV=/dev/${1}
 
 case ${2} in
@@ -219,18 +252,17 @@ case ${2} in
     then
       OPTS="noatime"
     fi
-    while ! head -c 1 ${DEV} 1> /dev/null 2> /dev/null
-    do
-      sleep 0.2
-    done
+    __wait_for_device ${DEV}
     case $( file -b -L -s ${DEV} | sed -E 's/label:\ \".*\"//g' ) in
       (*FAT*) # must be before NTFS section because: newfs_msdos -O NTFS -L NTFS
         __create_mount_point ${DEV}
+        __wait_for_device ${DEV}
         fsck_msdosfs -y ${DEV} \
           | while read LINE
             do
               __log "${DEV}: fsck_msdosfs ${LINE}"
             done
+        __wait_for_device ${DEV}
         if mount_msdosfs -o large -D ${CODEPAGE} -L ${ENCODING} \
                          -m 644 -M 755 ${DEV} ${MNT}
         then
@@ -243,8 +275,10 @@ case ${2} in
         ;;
       (*NTFS*) # must be after FAT section: newfs_msdos -O NTFS -L NTFS
         __create_mount_point ${DEV}
+        __wait_for_device ${DEV}
         if which ntfs-3g 1> /dev/null 2> /dev/null # sysutils/fusefs-ntfs
         then
+          __wait_for_device ${DEV}
           if ntfs-3g -o ${OPTS} ${DEV} ${MNT}
           then
             ADD=1
@@ -269,11 +303,13 @@ case ${2} in
         ;;
       (*ext2*)
         __create_mount_point ${DEV}
+        __wait_for_device ${DEV}
         fsck.ext2 -y ${DEV} \
           | while read LINE
             do
               __log "${DEV}: fsck.ext2 ${LINE}"
             done
+        __wait_for_device ${DEV}
         if mount -t ext2fs -o ${OPTS} ${DEV} ${MNT}
         then
           ADD=1
@@ -285,11 +321,13 @@ case ${2} in
         ;;
       (*ext3*)
         __create_mount_point ${DEV}
+        __wait_for_device ${DEV}
         fsck.ext3 -y ${DEV} \
           | while read LINE
             do
               __log "${DEV}: fsck.ext3 ${LINE}"
             done
+        __wait_for_device ${DEV}
         if mount -t ext2fs -o ${OPTS} ${DEV} ${MNT}
         then
           ADD=1
@@ -301,11 +339,13 @@ case ${2} in
         ;;
       (*ext4*)
         __create_mount_point ${DEV}
+        __wait_for_device ${DEV}
         fsck.ext4 -y ${DEV} \
           | while read LINE
             do
               __log "${DEV}: fsck.ext4 ${LINE}"
             done
+        __wait_for_device ${DEV}
         if ext4fuse ${DEV} ${MNT} # sysutils/fusefs-ext4fuse
         then
           ADD=1
@@ -317,11 +357,13 @@ case ${2} in
         ;;
       (*Unix\ Fast\ File*)
         __create_mount_point ${DEV}
+        __wait_for_device ${DEV}
         fsck_ufs -C -y ${DEV} \
           | while read LINE
             do
               __log "${DEV}: fsck_ufs ${LINE}"
             done
+        __wait_for_device ${DEV}
         if mount -t ufs -o ${OPTS} ${DEV} ${MNT}
         then
           ADD=1
@@ -335,6 +377,7 @@ case ${2} in
         case $( dd < ${DEV} count=1 2> /dev/null | strings | head -1 ) in
           (*EXFAT*)
             __create_mount_point ${DEV}
+            __wait_for_device ${DEV}
             if mount.exfat -o ${OPTS} ${DEV} ${MNT} # sysutils/fusefs-exfat
             then
               ADD=1
@@ -344,6 +387,9 @@ case ${2} in
             fi
             __log "${DEV}: mount (exfat)"
             ;;
+          (*)
+            __log "${DEV}: filesystem not supported or no filesystem"
+            exit 0
         esac
         ;;
     esac
