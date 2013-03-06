@@ -118,7 +118,7 @@ EOF
 
 if [ "${1}" = "--version" ]
 then
-  echo "automount 1.4.2 2013/02/15"
+  echo "automount 1.4.3 2013/03/06"
   exit 0
 fi
 
@@ -162,17 +162,23 @@ __create_mount_point() { # 1=DEV
 }
 
 __state_add() { # 1=DEV 2=PROVIDER 3=MNT
-  if grep -E "${3}$" ${STATE} 1> /dev/null 2> /dev/null
+  if [ -f ${STATE} ]
   then
-    __log "${1}: duplicated '${STATE}'"
-    exit 0
+    if grep -E "${3}$" ${STATE} 1> /dev/null 2> /dev/null
+    then
+      __log "${1}: duplicated '${STATE}'"
+      exit 0
+    fi
   fi
   echo "${1} ${2} ${3}" >> ${STATE}
 }
 
 __state_remove() { # 1=MNT
-  BSMNT=$( echo ${1} | sed 's/\//\\\//g' ) # backslash the slashes ;)
-  sed -i '' "/${BSMNT}\$/d" ${STATE}
+  if [ -f ${STATE} ]
+  then
+    BSMNT=$( echo ${1} | sed 's/\//\\\//g' ) # backslash the slashes ;)
+    sed -i '' "/${BSMNT}\$/d" ${STATE}
+  fi
 }
 
 __remove_dir() { # 1=TARGET
@@ -250,7 +256,7 @@ case ${2} in
     __check_already_mounted -m ${MNT}
     if [ "${ATIME}" = NO ]
     then
-      OPTS="noatime"
+      OPTS="-o noatime"
     fi
     __wait_for_device ${DEV}
     case $( file -b -L -s ${DEV} | sed -E 's/label:\ \".*\"//g' ) in
@@ -263,12 +269,12 @@ case ${2} in
               __log "${DEV}: fsck_msdosfs ${LINE}"
             done
         __wait_for_device ${DEV}
-        if mount_msdosfs -o large -D ${CODEPAGE} -L ${ENCODING} \
+        if mount_msdosfs ${OPTS} -o large -D ${CODEPAGE} -L ${ENCODING} \
                          -m 644 -M 755 ${DEV} ${MNT}
         then
           ADD=1
         else
-          __log "${DEV}: mount failed (fat) 'mount_msdosfs -o large -D ${CODEPAGE} -L ${ENCODING} -m 644 -M 755 ${DEV} ${MNT}'"
+          __log "${DEV}: mount failed (fat) 'mount_msdosfs ${OPTS} -o large -D ${CODEPAGE} -L ${ENCODING} -m 644 -M 755 ${DEV} ${MNT}'"
           exit 1
         fi
         __log "${DEV}: mount (fat)"
@@ -279,23 +285,24 @@ case ${2} in
         if which ntfs-3g 1> /dev/null 2> /dev/null # sysutils/fusefs-ntfs
         then
           __wait_for_device ${DEV}
-          if ntfs-3g -o ${OPTS} ${DEV} ${MNT}
+
+          if ntfs-3g ${OPTS} ${DEV} ${MNT}
           then
             ADD=1
           else
-            __log "${DEV}: mount failed (ntfs) 'ntfs-3g -o ${OPTS} ${DEV} ${MNT}'"
+            __log "${DEV}: mount failed (ntfs) 'ntfs-3g ${OPTS} ${DEV} ${MNT}'"
             exit 1
           fi
         else
           if ! [ "${USER}" = 0 ]
           then
-            OPTS="-u ${USER} -g $( id -g -n ${USER} )"
+            OPTS="${OPTS} -u ${USER} -g $( id -g -n ${USER} )"
           fi
-          if mount_ntfs ${OPTS} -o noatime ${DEV} ${MNT}
+          if mount_ntfs ${OPTS} ${DEV} ${MNT}
           then
             ADD=1
           else
-            __log "${DEV}: mount failed (ntfs) 'ntfs-3g -o ${OPTS} ${DEV} ${MNT}'"
+            __log "${DEV}: mount failed (ntfs) 'ntfs-3g ${OPTS} ${DEV} ${MNT}'"
             exit 1
           fi
         fi
@@ -310,11 +317,11 @@ case ${2} in
               __log "${DEV}: fsck.ext2 ${LINE}"
             done
         __wait_for_device ${DEV}
-        if mount -t ext2fs -o ${OPTS} ${DEV} ${MNT}
+        if mount -t ext2fs ${OPTS} ${DEV} ${MNT}
         then
           ADD=1
         else
-          __log "${DEV}: mount failed (ext2) 'mount -t ext2fs -o ${OPTS} ${DEV} ${MNT}'"
+          __log "${DEV}: mount failed (ext2) 'mount -t ext2fs ${OPTS} ${DEV} ${MNT}'"
           exit 1
         fi
         __log "${DEV}: mount (ext2)"
@@ -328,11 +335,11 @@ case ${2} in
               __log "${DEV}: fsck.ext3 ${LINE}"
             done
         __wait_for_device ${DEV}
-        if mount -t ext2fs -o ${OPTS} ${DEV} ${MNT}
+        if mount -t ext2fs ${OPTS} ${DEV} ${MNT}
         then
           ADD=1
         else
-          __log "${DEV}: mount failed (ext3) 'mount -t ext2fs -o ${OPTS} ${DEV} ${MNT}'"
+          __log "${DEV}: mount failed (ext3) 'mount -t ext2fs ${OPTS} ${DEV} ${MNT}'"
           exit 1
         fi
         __log "${DEV}: mount (ext3)"
@@ -364,11 +371,11 @@ case ${2} in
               __log "${DEV}: fsck_ufs ${LINE}"
             done
         __wait_for_device ${DEV}
-        if mount -t ufs -o ${OPTS} ${DEV} ${MNT}
+        if mount -t ufs ${OPTS} ${DEV} ${MNT}
         then
           ADD=1
         else
-          __log "${DEV}: mount failed (ufs) 'mount -t ufs -o ${OPTS} ${DEV} ${MNT}'"
+          __log "${DEV}: mount failed (ufs) 'mount -t ufs ${OPTS} ${DEV} ${MNT}'"
           exit 1
         fi
         __log "${DEV}: mount (ufs)"
@@ -378,11 +385,11 @@ case ${2} in
           (*EXFAT*)
             __create_mount_point ${DEV}
             __wait_for_device ${DEV}
-            if mount.exfat -o ${OPTS} ${DEV} ${MNT} # sysutils/fusefs-exfat
+            if mount.exfat ${OPTS} ${DEV} ${MNT} # sysutils/fusefs-exfat
             then
               ADD=1
             else
-              __log "${DEV}: mount failed (exfat) 'mount.exfat -o ${OPTS} ${DEV} ${MNT}'"
+              __log "${DEV}: mount failed (exfat) 'mount.exfat ${OPTS} ${DEV} ${MNT}'"
               exit 1
             fi
             __log "${DEV}: mount (exfat)"
@@ -407,25 +414,28 @@ case ${2} in
 
   (detach)
     __log "${DEV}: detach"
-    grep -E "${MNTPREFIX}/${1}$" ${STATE} \
-      | while read DEV PROVIDER MNT
-        do
-          TARGET=$( mount | grep -E "^${PROVIDER} " | awk '{print $3}' )
-          __state_remove ${MNT}
-          if [ -z ${TARGET} ]
-          then
-            continue
-          fi
-          ( # put entire umount/find/rm block into background
-            umount -f ${TARGET}
-            __remove_dir "${TARGET}"
-            __log "${DEV}: removed '${TARGET}'"
-          ) &
-          unset TARGET
-          __log "${DEV}: umount"
-        done
-    __remove_dir "${MNTPREFIX}/${1}"
-    __log "${DEV}: mount point '${MNTPREFIX}/${1}' removed"
+    if [ -f ${STATE} ]
+    then
+      grep -E "${MNTPREFIX}/${1}$" ${STATE} \
+        | while read DEV PROVIDER MNT
+          do
+            TARGET=$( mount | grep -E "^${PROVIDER} " | awk '{print $3}' )
+            __state_remove ${MNT}
+            if [ -z ${TARGET} ]
+            then
+              continue
+            fi
+            ( # put entire umount/find/rm block into background
+              umount -f ${TARGET}
+              __remove_dir "${TARGET}"
+              __log "${DEV}: removed '${TARGET}'"
+            ) &
+            unset TARGET
+            __log "${DEV}: umount"
+          done
+      __remove_dir "${MNTPREFIX}/${1}"
+      __log "${DEV}: mount point '${MNTPREFIX}/${1}' removed"
+    fi
     ;;
 
 esac
