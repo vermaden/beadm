@@ -199,7 +199,7 @@ __check_already_mounted() { # 1=(-d|-m) 2=(DEV|MNT)
       if echo "${MOUNT}" | grep -q "^${2} on "
       then
         local MOUNT="$( echo "${MOUNT}" | grep "^${2} on " | cut -d ' ' -f 3-255 | cut -d '(' -f 1 | sed s/.$// )"
-        __log "${DEV}: -d already mounted on '${MOUNT}' mount point"
+        __log "${DEV}: already mounted on '${MOUNT}' mount point"
         exit 0
       fi
       ;;
