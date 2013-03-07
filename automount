@@ -286,7 +286,7 @@ case ${2} in
         then
           __wait_for_device ${DEV}
 
-          if ntfs-3g ${OPTS} ${DEV} ${MNT}
+          if ntfs-3g -o remove_hiberfile ${OPTS} ${DEV} ${MNT}
           then
             ADD=1
           else
