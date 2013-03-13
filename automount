@@ -268,8 +268,8 @@ case ${2} in
               __log "${DEV}: fsck_msdosfs ${LINE}"
             done
         __wait_for_device ${DEV}
-        if mount_msdosfs ${OPTS} -o large -o longnames -D ${CODEPAGE} -L ${ENCODING} \
-                         -m 644 -M 755 ${DEV} ${MNT}
+        if mount_msdosfs ${OPTS} -o large -o longnames -m 644 -M 755 \
+                         -D ${CODEPAGE} -L ${ENCODING} ${DEV} ${MNT}
         then
           ADD=1
         else
