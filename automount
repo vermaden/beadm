@@ -268,12 +268,12 @@ case ${2} in
               __log "${DEV}: fsck_msdosfs ${LINE}"
             done
         __wait_for_device ${DEV}
-        if mount_msdosfs ${OPTS} -o large -D ${CODEPAGE} -L ${ENCODING} \
+        if mount_msdosfs ${OPTS} -o large -o longnames -D ${CODEPAGE} -L ${ENCODING} \
                          -m 644 -M 755 ${DEV} ${MNT}
         then
           ADD=1
         else
-          __log "${DEV}: mount failed (fat) 'mount_msdosfs ${OPTS} -o large -D ${CODEPAGE} -L ${ENCODING} -m 644 -M 755 ${DEV} ${MNT}'"
+          __log "${DEV}: mount failed (fat) 'mount_msdosfs ${OPTS} -o large -o longnames -D ${CODEPAGE} -L ${ENCODING} -m 644 -M 755 ${DEV} ${MNT}'"
           exit 1
         fi
         __log "${DEV}: mount (fat)"
