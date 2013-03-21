@@ -284,7 +284,6 @@ case ${2} in
         if which ntfs-3g 1> /dev/null 2> /dev/null # sysutils/fusefs-ntfs
         then
           __wait_for_device ${DEV}
-
           if ntfs-3g -o remove_hiberfile ${OPTS} ${DEV} ${MNT}
           then
             ADD=1
@@ -301,7 +300,7 @@ case ${2} in
           then
             ADD=1
           else
-            __log "${DEV}: mount failed (ntfs) 'ntfs-3g ${OPTS} ${DEV} ${MNT}'"
+            __log "${DEV}: mount failed (ntfs) 'mount_ntfs ${OPTS} ${DEV} ${MNT}'"
             exit 1
           fi
         fi
