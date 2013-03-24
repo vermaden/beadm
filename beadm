@@ -123,7 +123,12 @@ __be_new() { # 1=SOURCE 2=TARGET
         local OPTS=""
         while read NAME PROPERTY VALUE
         do
-          local OPTS="-o ${PROPERTY}=${VALUE} ${OPTS}"
+          if [ "${PROPERTY}" = "sharenfs" ]
+          then
+            local OPTS="-o ${PROPERTY}=\"${VALUE}\" ${OPTS}"
+          else
+            local OPTS="-o ${PROPERTY}=${VALUE} ${OPTS}"
+          fi
         done << EOF
 $( zfs get -o name,property,value -s local,received -H all ${FS} | awk '!/[\t ]canmount[\t ]/' )
 EOF
@@ -134,9 +139,9 @@ EOF
         fi
         if __be_snapshot ${1}
         then
-          zfs clone -o canmount=off ${OPTS} ${FS}@${1##*@} ${DATASET}
+          eval "zfs clone -o canmount=off ${OPTS} ${FS}@${1##*@} ${DATASET}"
         else
-          zfs clone -o canmount=off ${OPTS} ${FS}@${FMT} ${DATASET}
+          eval "zfs clone -o canmount=off ${OPTS} ${FS}@${FMT} ${DATASET}"
         fi
       done
 }
