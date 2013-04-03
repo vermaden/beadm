@@ -268,10 +268,10 @@ __random_wait() {
 DEV=/dev/${1}
 
 __wait_for_boot
-__random_wait
 
 case ${2} in
   (attach)
+    __random_wait
     __log "${DEV}: attach"
     if [ "${BLACKLIST}" != "" ]
       then
