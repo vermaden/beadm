@@ -256,9 +256,19 @@ __wait_for_boot() {
   fi
 }
 
-__wait_for_boot
+__random_wait() {
+  RANDOM=$( head -c 256 /dev/urandom | env LC_ALL=C tr -c -d '1-9' )
+  MODULO=$(( ${RANDOM} % 24 ))
+  WAIT=$( echo ${MODULO} / 10 | bc -l )
+  WAIT=$( printf "%.1f" ${WAIT} )
+  sleep ${WAIT}
+  __log "${DEV}: random wait for '${WAIT}' seconds before 'attach' action"
+}
 
 DEV=/dev/${1}
+
+__wait_for_boot
+__random_wait
 
 case ${2} in
   (attach)
