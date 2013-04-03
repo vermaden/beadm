@@ -252,7 +252,7 @@ __wait_for_boot() {
   done
   if [ ${WAIT} -eq 1 ]
   then
-    __log "${DEV}: wait for boot process completed after '${BOOTDELAY}' seconds"
+    __log "${DEV}: done waiting '${BOOTDELAY}' seconds for boot process to complete"
   fi
 }
 
@@ -280,7 +280,7 @@ case ${2} in
       do
         if [ ${1} = "${I}" ]
         then
-          __log "${DEV}: device blocked by BLACKLIST"
+          __log "${DEV}: device blocked by BLACKLIST option"
           exit 0
         fi
       done
