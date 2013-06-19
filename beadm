@@ -1,8 +1,9 @@
 #!/bin/sh -e
 
-# Copyright (c) 2012 Slawomir Wojciech Wojtczak (vermaden). All rights reserved.
-# Copyright (c) 2012 Bryan Drewery (bdrewery). All rights reserved.
-# Copyright (c) 2012 Mike Clarke (rawthey). All rights reserved.
+# Copyright (c) 2012-2013 Slawomir Wojciech Wojtczak (vermaden).
+# Copyright (c) 2012-2013 Bryan Drewery (bdrewery).
+# Copyright (c) 2012-2013 Mike Clarke (rawthey).
+# All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that following conditions are met:
@@ -25,12 +26,18 @@
 
 unset LC_ALL
 unset LANG
-PATH=${PATH}:/bin:/usr/bin:/sbin:/usr/sbin
+PATH=${PATH}:/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:/usr/local/sbin
 
 if [ $( uname -r | cut -d '.' -f1 ) -lt 8 ]
 then
   echo "ERROR: beadm works on FreeBSD 8.0 or later"
   exit 1
+fi
+
+if [ "${1}" = "--version" ]
+then
+  echo "beadm 0.8.6 2013/06/19"
+  exit 0
 fi
 
 __usage() {
@@ -45,6 +52,14 @@ __usage() {
   echo "  ${NAME} mount <beName> [mountpoint]"
   echo "  ${NAME} { umount | unmount } [-f] <beName>"
   exit 1
+}
+
+# check if system has a grub.cfg file and update it
+__update_grub() {
+  if [ -e /boot/grub/grub.cfg ]
+  then
+    grub-mkconfig -o /boot/grub/grub.cfg
+  fi
 }
 
 # check if boot environment exists
@@ -132,7 +147,7 @@ __be_new() { # 1=SOURCE 2=TARGET
         done << EOF
 $( zfs get -o name,property,value -s local,received -H all ${FS} | awk '!/[\t ]canmount[\t ]/' )
 EOF
-        DATASET=$( echo ${FS} | awk '{print $1}' | sed -E s/"^${POOL}\/ROOT\/${SOURCE##*/}"/"${POOL}\/ROOT\/${2##*/}"/g )
+        DATASET=$( echo ${FS} | awk '{print $1}' | sed -E s/"^${POOL}\/${BEDS}\/${SOURCE##*/}"/"${POOL}\/${BEDS}\/${2##*/}"/g )
         if [ "${OPTS}" = "-o = " ]
         then
           local OPTS=""
@@ -144,6 +159,11 @@ EOF
           eval "zfs clone -o canmount=off ${OPTS} ${FS}@${FMT} ${DATASET}"
         fi
       done
+      # check if we need to update grub
+      if [ "${GRUB}" = YES ]
+      then
+        __update_grub
+      fi
 }
 
 ROOTFS=$( mount | awk '/ \/ / {print $1}' )
@@ -156,7 +176,7 @@ fi
 
 POOL=$( echo ${ROOTFS} | awk -F '/' '{print $1}' )
 
-if ! zfs list ${POOL}/ROOT 1> /dev/null 2> /dev/null
+if [ $( echo ${ROOTFS} | awk -F '/' '{print NF}' ) -lt 3 ]
 then
   echo "ERROR: This system is not configured for boot environments"
   exit 1
@@ -169,6 +189,17 @@ then
  echo "ERROR: ZFS boot pool '${POOL}' has unset 'bootfs' property"
  exit 1
 fi
+
+if [ -f /usr/local/etc/beadm.conf ]
+then
+  . /usr/local/etc/beadm.conf
+fi
+
+# update GRUB bootloader instead of FreeBSD's loader(8)
+: ${GRUB="NO"}
+
+# use other prefix then the 'pool/ROOT/bename' default
+: ${BEDS="$( echo ${ROOTFS} | awk -F '/' '{print $2}' )"}
 
 case ${1} in
 
@@ -189,6 +220,7 @@ case ${1} in
       esac
     done
     awk -v POOL="${POOL}" \
+        -v BEDS="${BEDS}" \
         -v ROOTFS="${ROOTFS}" \
         -v BOOTFS="${BOOTFS}" \
         -v OPTION_a="${OPTION_a}" \
@@ -223,7 +255,7 @@ case ${1} in
         return NEW
       }
       BEGIN {
-        BENAME_BEGINS_WITH = POOL "/ROOT"
+        BENAME_BEGINS_WITH = POOL "/" BEDS
         MULTIPLIER["K"] = 1
         MULTIPLIER["M"] = 1024
         MULTIPLIER["G"] = 1048576
@@ -379,24 +411,24 @@ case ${1} in
         then
           __usage
         fi
-        __be_exist ${POOL}/ROOT/${3}
-        if zfs list -H -o name ${POOL}/ROOT/${4} 1> /dev/null 2> /dev/null
+        __be_exist ${POOL}/${BEDS}/${3}
+        if zfs list -H -o name ${POOL}/${BEDS}/${4} 1> /dev/null 2> /dev/null
         then
           echo "ERROR: Boot environment '${4}' already exists"
           exit 1
         fi
-        __be_new ${POOL}/ROOT/${3} ${POOL}/ROOT/${4}
+        __be_new ${POOL}/${BEDS}/${3} ${POOL}/${BEDS}/${4}
         ;;
       (2)
         if __be_snapshot ${2}
         then
-          if ! zfs snapshot -r ${POOL}/ROOT/${2} 1> /dev/null 2> /dev/null
+          if ! zfs snapshot -r ${POOL}/${BEDS}/${2} 1> /dev/null 2> /dev/null
           then
             echo "ERROR: Cannot create '${2}' recursive snapshot"
             exit 1
           fi
         else
-          __be_new ${ROOTFS} ${POOL}/ROOT/${2}
+          __be_new ${ROOTFS} ${POOL}/${BEDS}/${2}
         fi
         ;;
       (*)
@@ -411,15 +443,15 @@ case ${1} in
     then
       __usage
     fi
-    __be_exist ${POOL}/ROOT/${2}
-    if [ "${BOOTFS}" = "${POOL}/ROOT/${2}" ]
+    __be_exist ${POOL}/${BEDS}/${2}
+    if [ "${BOOTFS}" = "${POOL}/${BEDS}/${2}" ]
     then
       echo "Already activated"
       exit 0
     else
-      if __be_mounted ${POOL}/ROOT/${2}
+      if __be_mounted ${POOL}/${BEDS}/${2}
       then
-        MNT=$( mount | grep -E "^${POOL}/ROOT/${2} " | awk '{print $3}' )
+        MNT=$( mount | grep -E "^${POOL}/${BEDS}/${2} " | awk '{print $3}' )
         if [ "${MNT}" != "/" ]
         then
           # boot environment is not current root and its mounted
@@ -429,7 +461,7 @@ case ${1} in
         fi
       fi
       # do not change root (/) mounted boot environment mountpoint
-      if [ "${ROOTFS}" != "${POOL}/ROOT/${2}" ]
+      if [ "${ROOTFS}" != "${POOL}/${BEDS}/${2}" ]
       then
         TMPMNT=$( mktemp -d -t BE-${2} )
         if ! mkdir -p ${TMPMNT} 2> /dev/null
@@ -440,7 +472,7 @@ case ${1} in
         MOUNT=0
         while read FS MNT TYPE OPTS DUMP FSCK;
         do
-          if [ "${FS}" = "${POOL}/ROOT/${2}" ]
+          if [ "${FS}" = "${POOL}/${BEDS}/${2}" ]
           then
             MOUNT=${MNT}
             break
@@ -450,9 +482,9 @@ $( mount -p )
 EOF
         if [ ${MOUNT} -eq 0 ]
         then
-          zfs set canmount=noauto ${POOL}/ROOT/${2}
-          zfs set mountpoint=${TMPMNT} ${POOL}/ROOT/${2}
-          zfs mount ${POOL}/ROOT/${2}
+          zfs set canmount=noauto ${POOL}/${BEDS}/${2}
+          zfs set mountpoint=${TMPMNT} ${POOL}/${BEDS}/${2}
+          zfs mount ${POOL}/${BEDS}/${2}
         else
           TMPMNT=${MOUNT}
         fi
@@ -462,32 +494,32 @@ EOF
         then
           LOADER_CONFIGS="${LOADER_CONFIGS} ${TMPMNT}/boot/loader.conf.local"
         fi
-        sed -i '' -E s/"^vfs.root.mountfrom=.*$"/"vfs.root.mountfrom=\"zfs:${POOL}\/ROOT\/${2##*/}\""/g ${LOADER_CONFIGS}
+        sed -i '' -E s/"^vfs.root.mountfrom=.*$"/"vfs.root.mountfrom=\"zfs:${POOL}\/${BEDS}\/${2##*/}\""/g ${LOADER_CONFIGS}
         if [ ${MOUNT} -eq 0 ]
         then
-          zfs umount ${POOL}/ROOT/${2}
-          zfs set mountpoint=legacy ${POOL}/ROOT/${2}
+          zfs umount ${POOL}/${BEDS}/${2}
+          zfs set mountpoint=legacy ${POOL}/${BEDS}/${2}
         fi
       fi
-      if ! zpool set bootfs=${POOL}/ROOT/${2} ${POOL} 1> /dev/null 2> /dev/null
+      if ! zpool set bootfs=${POOL}/${BEDS}/${2} ${POOL} 1> /dev/null 2> /dev/null
       then
         echo "ERROR: Failed to activate '${2}' boot environment"
         exit 1
       fi
     fi
     # execute ZFS LIST only once
-    ZFS_LIST=$( zfs list -H -o name -r ${POOL}/ROOT )
+    ZFS_LIST=$( zfs list -H -o name -r ${POOL}/${BEDS} )
     # disable automatic mount on all inactive boot environments
     echo "${ZFS_LIST}" \
-      | grep -v "^${POOL}/ROOT/${2}$" \
-      | grep -v "^${POOL}/ROOT/${2}/" \
+      | grep -v "^${POOL}/${BEDS}/${2}$" \
+      | grep -v "^${POOL}/${BEDS}/${2}/" \
       | while read NAME
         do
           zfs set canmount=noauto ${NAME}
         done
     # enable automatic mount for active boot environment and promote it
     echo "${ZFS_LIST}" \
-      | grep -E "^${POOL}/ROOT/${2}(/|$)" \
+      | grep -E "^${POOL}/${BEDS}/${2}(/|$)" \
       | while read NAME
         do
           zfs set canmount=on ${NAME}
@@ -506,7 +538,7 @@ EOF
     else
       DESTROY=${3}
     fi
-    __be_exist ${POOL}/ROOT/${DESTROY}
+    __be_exist ${POOL}/${BEDS}/${DESTROY}
     case ${#} in
       (2)
         echo "Are you sure you want to destroy '${2}'?"
@@ -524,7 +556,7 @@ EOF
         __usage
         ;;
     esac
-    if [ "${BOOTFS}" = "${POOL}/ROOT/${DESTROY}" ]
+    if [ "${BOOTFS}" = "${POOL}/${BEDS}/${DESTROY}" ]
     then
       echo "ERROR: Cannot destroy active boot environment"
       exit 1
@@ -532,32 +564,32 @@ EOF
     case ${CHOICE} in
       (Y|y|[Yy][Ee][Ss])
         # destroy snapshot or boot environment
-        if __be_snapshot ${POOL}/ROOT/${DESTROY}
+        if __be_snapshot ${POOL}/${BEDS}/${DESTROY}
         then
           # destroy desired snapshot
-          if ! zfs destroy -r ${POOL}/ROOT/${DESTROY} 1> /dev/null 2> /dev/null
+          if ! zfs destroy -r ${POOL}/${BEDS}/${DESTROY} 1> /dev/null 2> /dev/null
           then
             echo "ERROR: Snapshot '${2}' is origin for other boot environment"
             exit 1
           fi
         else
-          if __be_clone ${POOL}/ROOT/${DESTROY}
+          if __be_clone ${POOL}/${BEDS}/${DESTROY}
           then
             # promote clones dependent on snapshots used by destroyed boot environment
             zfs list -H -t all -o name,origin -r ${POOL} \
               | while read NAME ORIGIN
                 do
-                  if echo "${ORIGIN}" | grep -q -E "${POOL}/ROOT/${DESTROY}(/.*@|@)" 2> /dev/null
+                  if echo "${ORIGIN}" | grep -q -E "${POOL}/${BEDS}/${DESTROY}(/.*@|@)" 2> /dev/null
                   then
                     zfs promote ${NAME}
                   fi
                 done
             # get origins used by destroyed boot environment
-            ORIGIN_SNAPSHOTS=$( zfs list -H -t all -o origin -r ${POOL}/ROOT/${DESTROY} | grep -v '^-$' | awk -F "@" '{print $2}' | sort -u )
+            ORIGIN_SNAPSHOTS=$( zfs list -H -t all -o origin -r ${POOL}/${BEDS}/${DESTROY} | grep -v '^-$' | awk -F "@" '{print $2}' | sort -u )
           fi
           # check if boot environment was created from existing snapshot
-          ORIGIN=$( zfs list -H -o origin ${POOL}/ROOT/${DESTROY} )
-          CREATION=$( zfs list -H -o creation ${POOL}/ROOT/${DESTROY} )
+          ORIGIN=$( zfs list -H -o origin ${POOL}/${BEDS}/${DESTROY} )
+          CREATION=$( zfs list -H -o creation ${POOL}/${BEDS}/${DESTROY} )
           CREATION=$( date -j -f "%a %b %d %H:%M %Y" "${CREATION}" +"%Y-%m-%d-%H:%M" )
           SNAPSHOT_NAME=$( echo "${ORIGIN}" | cut -d '@' -f 2 | sed -E 's/:[0-9]{2}$//g' )
           if [ "${2}" = "-F" ]
@@ -582,9 +614,9 @@ EOF
             CHOICE=1
           fi
           # destroy boot environment
-          zfs destroy -r ${POOL}/ROOT/${DESTROY}
-          # check if boot environment is a clone
-          if __be_clone ${POOL}/ROOT/${DESTROY}
+          zfs destroy -r ${POOL}/${BEDS}/${DESTROY}
+           # check if boot environment is a clone
+          if __be_clone ${POOL}/${BEDS}/${DESTROY}
           then
             # promote datasets dependent on origins used by destroyed boot environment
             ALL_ORIGINS=$( zfs list -H -t all -o name,origin -r ${POOL} )
@@ -616,6 +648,11 @@ EOF
                     done
               done
         fi
+        # check if we need to update grub
+        if [ "${GRUB}" = YES ]
+        then
+          __update_grub
+        fi
         echo "Destroyed successfully"
         ;;
       (*)
@@ -629,18 +666,18 @@ EOF
     then
       __usage
     fi
-    __be_exist ${POOL}/ROOT/${2}
-    if [ "${BOOTFS}" = "${POOL}/ROOT/${2}" ]
+    __be_exist ${POOL}/${BEDS}/${2}
+    if [ "${BOOTFS}" = "${POOL}/${BEDS}/${2}" ]
     then
       echo "ERROR: Renaming active boot environment is not supported"
       exit 1
     fi
-    if zfs list -H -o name ${POOL}/ROOT/${3} 2> /dev/null
+    if zfs list -H -o name ${POOL}/${BEDS}/${3} 2> /dev/null
     then
       echo "ERROR: Boot environment '${3}' already exists"
       exit 1
     fi
-    zfs rename ${POOL}/ROOT/${2} ${POOL}/ROOT/${3}
+    zfs rename ${POOL}/${BEDS}/${2} ${POOL}/${BEDS}/${3}
     echo "Renamed successfully"
     ;;
 
@@ -654,10 +691,10 @@ EOF
     else
       __usage
     fi
-    __be_exist "${POOL}/ROOT/${2}"
-    if __be_mounted "${POOL}/ROOT/${2}"
+    __be_exist "${POOL}/${BEDS}/${2}"
+    if __be_mounted "${POOL}/${BEDS}/${2}"
     then
-      MNT=$( mount | grep -E "^${POOL}/ROOT/${2} " | awk '{print $3}' )
+      MNT=$( mount | grep -E "^${POOL}/${BEDS}/${2} " | awk '{print $3}' )
       echo "Boot environment '${2}' is already mounted at '${MNT}'"
       exit 1
     fi
@@ -666,19 +703,19 @@ EOF
       echo "ERROR: Cannot create '${TARGET}' mountpoint"
       exit 1
     fi
-    if ! mount -t zfs ${POOL}/ROOT/${2} ${TARGET}
+    if ! mount -t zfs ${POOL}/${BEDS}/${2} ${TARGET}
     then
       echo "ERROR: Cannot mount '${2}' at '${TARGET}' mountpoint"
       exit 1
     fi
-    PREFIX=$( echo ${POOL}/ROOT/${2}/ | sed 's/\//\\\//g' )
-    zfs list -H -o name,mountpoint -r ${POOL}/ROOT/${2} \
+    PREFIX=$( echo ${POOL}/${BEDS}/${2}/ | sed 's/\//\\//g' )
+    zfs list -H -o name,mountpoint -r ${POOL}/${BEDS}/${2} \
       | grep -v -E "[[:space:]](legacy|none)$" \
       | sort -n \
-      | grep -E "^${POOL}/ROOT/${2}/" \
+      | grep -E "^${POOL}/${BEDS}/${2}/" \
       | while read FS MOUNTPOINT
         do
-          if [ "{FS}" != "${POOL}/ROOT/${2}" ]
+          if [ "{FS}" != "${POOL}/${BEDS}/${2}" ]
           then
             INHERIT=$( zfs get -H -o source mountpoint ${FS} )
             if [ "${INHERIT}" = "local" ]
@@ -719,17 +756,17 @@ EOF
     else
       __usage
     fi
-    __be_exist "${POOL}/ROOT/${2}"
-    if ! __be_mounted "${POOL}/ROOT/${2}"
+    __be_exist "${POOL}/${BEDS}/${2}"
+    if ! __be_mounted "${POOL}/${BEDS}/${2}"
     then
       echo "Boot environment '${2}' is not mounted"
       exit 1
     fi
     MOUNT=$( mount )
-    MOUNTPOINT=$( echo "${MOUNT}" | grep -m 1 "^${POOL}/ROOT/${2} on " | awk '{print $3}' )
+    MOUNTPOINT=$( echo "${MOUNT}" | grep -m 1 "^${POOL}/${BEDS}/${2} on " | awk '{print $3}' )
     echo "${MOUNT}" \
       | awk '{print $1}' \
-      | grep -E "^${POOL}/ROOT/${2}(/|$)" \
+      | grep -E "^${POOL}/${BEDS}/${2}(/|$)" \
       | sort -n -r \
       | while read FS
         do
