@@ -59,7 +59,12 @@ __usage() {
 __update_grub() {
   if [ -e /boot/grub/grub.cfg ]
   then
-    grub-mkconfig -o /boot/grub/grub.cfg
+    if grub-mkconfig -o /boot/grub/grub.cfg 1> /dev/null 2> /dev/null
+    then
+      echo "GRUB configuration updated successfully"
+    else
+      echo "WARNING: Failed to update GRUB configuration"
+    fi
   fi
 }
 
