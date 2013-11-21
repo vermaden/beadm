@@ -715,7 +715,6 @@ EOF
       echo "ERROR: Cannot mount '${2}' at '${TARGET}' mountpoint"
       exit 1
     fi
-    PREFIX=$( echo ${POOL}/${BEDS}/${2}/ | sed 's/\//\\/g' )
     zfs list -H -o name,mountpoint -r ${POOL}/${BEDS}/${2} \
       | grep -v -E "[[:space:]](legacy|none)$" \
       | sort -n \
@@ -732,7 +731,7 @@ EOF
                   continue
                   ;;
                 (*)
-                  MOUNTPOINT="/$( echo "${FS}" | sed s/"${PREFIX}"//g )"
+                  MOUNTPOINT="/$( echo "${FS}" | sed s^"${POOL}/${BEDS}/${2}/"g )"
                   ;;
               esac
             fi
