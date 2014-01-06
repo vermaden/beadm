@@ -495,7 +495,12 @@ EOF
         else
           TMPMNT=${MOUNT}
         fi
-        cp /boot/zfs/zpool.cache ${TMPMNT}/boot/zfs/zpool.cache
+        if [ -f /boot/zfs/zpool.cache ]
+        then
+          cp /boot/zfs/zpool.cache ${TMPMNT}/boot/zfs/zpool.cache
+        else
+          rm ${TMPMNT}/boot/zfs/zpool.cache
+        fi
         LOADER_CONFIGS=${TMPMNT}/boot/loader.conf
         if [ -f ${TMPMNT}/boot/loader.conf.local ]
         then
