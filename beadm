@@ -541,6 +541,13 @@ EOF
             zfs promote ${NAME}
           done
         done
+
+    # check if we need to update grub
+    if [ "${GRUB}" = YES ]
+    then
+      __update_grub
+    fi
+
     echo "Activated successfully"
     ;;
 
@@ -691,6 +698,13 @@ EOF
       exit 1
     fi
     zfs rename ${POOL}/${BEDS}/${2} ${POOL}/${BEDS}/${3}
+
+    # check if we need to update grub
+    if [ "${GRUB}" = YES ]
+    then
+      __update_grub
+    fi
+
     echo "Renamed successfully"
     ;;
 
