@@ -462,9 +462,15 @@ case ${1} in
         if [ "${MNT}" != "/" ]
         then
           # boot environment is not current root and its mounted
-          echo "ERROR: Boot environment '${2}' is mounted at '${MNT}'"
-          echo "ERROR: Cannot activate manually mounted boot environment"
-          exit 1
+          echo -n "Boot environment ${2} currently mounted, trying to unmount ... "
+          if ! umount ${MNT}
+          then
+            echo "failed."
+            echo "ERROR: Boot environment '${2}' is mounted at '${MNT}' and was unable to be unmounted"
+            echo "ERROR: Cannot activate boot environment '${2}'"
+            exit 1
+          fi
+          echo "done."
         fi
       fi
       # do not change root (/) mounted boot environment mountpoint
