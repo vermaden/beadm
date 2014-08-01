@@ -462,9 +462,14 @@ case ${1} in
         if [ "${MNT}" != "/" ]
         then
           # boot environment is not current root and its mounted
-          echo "ERROR: Boot environment '${2}' is mounted at '${MNT}'"
-          echo "ERROR: Cannot activate manually mounted boot environment"
-          exit 1
+          echo "Attempt to unmount boot environment '${2}' mounted at '${MNT}'"
+          if ! umount ${MNT} 1> /dev/null 2> /dev/null
+          then
+            echo "ERROR: Unable to unmount boot environment '${2}' mounted at '${MNT}'"
+            echo "ERROR: Cannot activate manually mounted boot environment '${2}'"
+            exit 1
+          fi
+        echo "Gracefully unmounted boot environment '${2}' from '${MNT}' mount point"
         fi
       fi
       # do not change root (/) mounted boot environment mountpoint
@@ -541,6 +546,11 @@ EOF
             zfs promote ${NAME}
           done
         done
+    # check if we need to update grub
+    if [ "${GRUB}" = YES ]
+    then
+      __update_grub
+    fi
     echo "Activated successfully"
     ;;
 
@@ -691,6 +701,11 @@ EOF
       exit 1
     fi
     zfs rename ${POOL}/${BEDS}/${2} ${POOL}/${BEDS}/${3}
+    # check if we need to update grub
+    if [ "${GRUB}" = YES ]
+    then
+      __update_grub
+    fi
     echo "Renamed successfully"
     ;;
 
