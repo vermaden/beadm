@@ -298,7 +298,7 @@ case ${2} in
       (*FAT*) # must be before NTFS section because: newfs_msdos -O NTFS -L NTFS
         __create_mount_point ${DEV}
         __wait_for_device ${DEV}
-        fsck_msdosfs -y ${DEV} \
+        fsck_msdosfs -C -y ${DEV} \
           | while read LINE
             do
               __log "${DEV}: fsck_msdosfs ${LINE}"
@@ -320,12 +320,18 @@ case ${2} in
         if which ntfs-3g 1> /dev/null 2> /dev/null # sysutils/fusefs-ntfs
         then
           __wait_for_device ${DEV}
-          if ntfs-3g -o remove_hiberfile ${OPTS} ${DEV} ${MNT}
+          if ntfs-3g -o recover -o remove_hiberfile ${OPTS} ${DEV} ${MNT}
           then
             ADD=1
           else
-            __log "${DEV}: mount failed (ntfs) 'ntfs-3g ${OPTS} ${DEV} ${MNT}'"
-            exit 1
+            # make nested mount try because sometimes second mount works
+            if ntfs-3g -o recover -o remove_hiberfile ${OPTS} ${DEV} ${MNT}
+            then
+              ADD=1
+            else
+              __log "${DEV}: mount failed (ntfs) 'ntfs-3g ${OPTS} ${DEV} ${MNT}'"
+              exit 1
+            fi
           fi
         else
           if ! [ "${USER}" = 0 ]
