@@ -294,7 +294,7 @@ case ${2} in
       OPTS="-o noatime"
     fi
     __wait_for_device ${DEV}
-    case $( file -b -L -s ${DEV} | sed -E 's/label:\ \".*\"//g' ) in
+    case $( file -k -b -L -s ${DEV} | sed -E 's/label:\ \".*\"//g' ) in
       (*FAT*) # must be before NTFS section because: newfs_msdos -O NTFS -L NTFS
         __create_mount_point ${DEV}
         __wait_for_device ${DEV}
