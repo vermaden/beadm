@@ -752,7 +752,7 @@ EOF
                   continue
                   ;;
                 (*)
-                  MOUNTPOINT="/$( echo "${FS}" | sed s^"${POOL}/${BEDS}/${2}/"g )"
+                  MOUNTPOINT="/$( echo "${FS}" | sed s^"${POOL}/${BEDS}/${2}/"^^g )"
                   ;;
               esac
             fi
