@@ -280,7 +280,7 @@ case ${1} in
             MOUNTS[$1] = $3
         close(CMD_MOUNT)
         FS = "\\t"
-        CMD_ZFS_LIST = "zfs list -H -t all -s creation -o name,used,usedds,usedbysnapshots,usedrefreserv,refer,creation,origin -r "
+        CMD_ZFS_LIST = "zfs list -H -t filesystem,snapshot,volume -s creation -o name,used,usedds,usedbysnapshots,usedrefreserv,refer,creation,origin -r "
         while(CMD_ZFS_LIST BENAME_BEGINS_WITH | getline) {
           if($1 != BENAME_BEGINS_WITH) {
             FSNAME = $1
@@ -599,7 +599,7 @@ EOF
           if __be_clone ${POOL}/${BEDS}/${DESTROY}
           then
             # promote clones dependent on snapshots used by destroyed boot environment
-            zfs list -H -t all -o name,origin -r ${POOL} \
+            zfs list -H -t filesystem,snapshot,volume -o name,origin -r ${POOL} \
               | while read NAME ORIGIN
                 do
                   if echo "${ORIGIN}" | grep -q -E "${POOL}/${BEDS}/${DESTROY}(/.*@|@)" 2> /dev/null
@@ -608,7 +608,7 @@ EOF
                   fi
                 done
             # get origins used by destroyed boot environment
-            ORIGIN_SNAPSHOTS=$( zfs list -H -t all -o origin -r ${POOL}/${BEDS}/${DESTROY} | grep -v '^-$' | awk -F "@" '{print $2}' | sort -u )
+            ORIGIN_SNAPSHOTS=$( zfs list -H -t filesystem,snapshot,volume -o origin -r ${POOL}/${BEDS}/${DESTROY} | grep -v '^-$' | awk -F "@" '{print $2}' | sort -u )
           fi
           # check if boot environment was created from existing snapshot
           ORIGIN=$( zfs list -H -o origin ${POOL}/${BEDS}/${DESTROY} )
@@ -642,7 +642,7 @@ EOF
           if __be_clone ${POOL}/${BEDS}/${DESTROY}
           then
             # promote datasets dependent on origins used by destroyed boot environment
-            ALL_ORIGINS=$( zfs list -H -t all -o name,origin -r ${POOL} )
+            ALL_ORIGINS=$( zfs list -H -t filesystem,snapshot,volume -o name,origin -r ${POOL} )
             echo "${ORIGIN_SNAPSHOTS}" \
               | while read S
                 do
