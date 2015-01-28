@@ -1,5 +1,6 @@
 #!/bin/sh -e
 
+# Copyright (c) 2015 Kris Moore (kmoore)
 # Copyright (c) 2012-2013 Slawomir Wojciech Wojtczak (vermaden)
 # Copyright (c) 2012-2013 Bryan Drewery (bdrewery)
 # Copyright (c) 2012-2013 Mike Clarke (rawthey)
@@ -37,7 +38,7 @@ fi
 
 if [ "${1}" = "--version" -o "${1}" = "version" ]
 then
-  echo "beadm 1.0 2013/10/13"
+  echo "beadm 1.1 2015/01/28"
   exit 0
 fi
 
@@ -45,9 +46,9 @@ __usage() {
   local NAME=${0##*/}
   echo "usage:"
   echo "  ${NAME} activate <beName>"
-  echo "  ${NAME} create [-e nonActiveBe | -e beName@snapshot] <beName>"
-  echo "  ${NAME} create <beName@snapshot>"
-  echo "  ${NAME} destroy [-F] <beName | beName@snapshot>"
+  echo "  ${NAME} create [-e nonActiveBe | -e beName@snapshot] <beName> [nickname]"
+  echo "  ${NAME} create <beName@snapshot> [nickname]"
+  echo "  ${NAME} destroy [-F] <beName | beName@snapshot | nickname>"
   echo "  ${NAME} list [-a] [-s] [-D] [-H]"
   echo "  ${NAME} rename <origBeName> <newBeName>"
   echo "  ${NAME} mount <beName> [mountpoint]"
@@ -75,6 +76,12 @@ __be_exist() { # 1=DATASET
     echo "ERROR: Boot environment '${1##*/}' does not exist"
     exit 1
   fi
+}
+
+# check if boot environment nickname exists
+__be_nickname_exist() { # 1=NICKNAME
+  zfs get -d 2 beadm:nickname ${POOL}/${BEDS} | grep -v "^NAME" | awk -Fbeadm:nickname '{print $2}' | awk -Finherited '{print $1}' | awk -Flocal '{print $1}' | sed -e 's/^ *//' -e 's/ *$//' | grep -q -w "$1"
+  return $?
 }
 
 # check if argument is a snapshot
@@ -107,8 +114,9 @@ __be_clone() { # 1=DATASET
 }
 
 # create new boot environment
-__be_new() { # 1=SOURCE 2=TARGET
+__be_new() { # 1=SOURCE 2=TARGET 3=NICKNAME
   local SOURCE=$( echo ${1} | cut -d '@' -f 1 )
+  local NICKNAME="$BENICK"
   if __be_snapshot ${1}
   then
     # create boot environment from snapshot
@@ -122,6 +130,15 @@ __be_new() { # 1=SOURCE 2=TARGET
             exit 1
           fi
         done
+    # Set nickname
+    if [ -n "${NICKNAME}" ]
+    then
+      zfs set beadm:nickname="${NICKNAME}" ${1}@${SNAPSHOT}
+      if [ $? -ne 0 ]
+      then
+        echo "WARNING: Unable to set nickname!"
+      fi
+    fi
   else
     # create boot environment from other boot environment
     if zfs list -H -o name ${1}@${2##*/} 1> /dev/null 2> /dev/null
@@ -135,6 +152,15 @@ __be_new() { # 1=SOURCE 2=TARGET
     then
       echo "ERROR: Cannot create snapshot '${1}@${FMT}'"
       exit 1
+    fi
+    # Set nickname
+    if [ -n "${NICKNAME}" ]
+    then
+      zfs set beadm:nickname="${NICKNAME}" ${1}@${FMT}
+      if [ $? -ne 0 ]
+      then
+        echo "WARNING: Unable to set nickname!"
+      fi
     fi
   fi
   # clone properties of source boot environment
@@ -152,7 +178,7 @@ __be_new() { # 1=SOURCE 2=TARGET
             local OPTS="-o ${PROPERTY}=${VALUE} ${OPTS}"
           fi
         done << EOF
-$( zfs get -o name,property,value -s local,received -H all ${FS} | awk '!/[\t ]canmount[\t ]/' )
+$( zfs get -o name,property,value -s local,received -H all ${FS} | awk '!/[\t ]canmount[\t ]/' | awk '!/[\t ]beadm:nickname[\t ]/')
 EOF
         DATASET=$( echo ${FS} | awk '{print $1}' | sed -E s/"^${POOL}\/${BEDS}\/${SOURCE##*/}"/"${POOL}\/${BEDS}\/${2##*/}"/g )
         if [ "${OPTS}" = "-o = " ]
@@ -166,6 +192,7 @@ EOF
           eval "zfs clone -o canmount=off ${OPTS} ${FS}@${FMT} ${DATASET}"
         fi
       done
+
       # check if we need to update grub
       if [ "${GRUB}" = YES ]
       then
@@ -407,7 +434,7 @@ case ${1} in
 
   (create) # ------------------------------------------------------------------
     case ${#} in
-      (4)
+      (4|5)
         if ! [ ${2} = "-e" ]
         then
           __usage
@@ -424,9 +451,18 @@ case ${1} in
           echo "ERROR: Boot environment '${4}' already exists"
           exit 1
         fi
-        __be_new ${POOL}/${BEDS}/${3} ${POOL}/${BEDS}/${4}
+	if [ -n "${5}" ]
+	then
+	  if __be_nickname_exist "${5}"
+	  then
+            echo "ERROR: Boot environment nickname '${5}' already exists"
+            exit 1
+	  fi
+	  BENICK="${5}"
+	fi
+        __be_new ${POOL}/${BEDS}/${3} ${POOL}/${BEDS}/${4} "${5}"
         ;;
-      (2)
+      (2|3)
         if __be_snapshot ${2}
         then
           if ! zfs snapshot -r ${POOL}/${BEDS}/${2} 1> /dev/null 2> /dev/null
@@ -435,6 +471,15 @@ case ${1} in
             exit 1
           fi
         else
+	if [ -n "${3}" ]
+	then
+	  if __be_nickname_exist "${3}"
+	  then
+            echo "ERROR: Boot environment nickname '${3}' already exists"
+            exit 1
+	  fi
+	  BENICK="${3}"
+	fi
           __be_new ${ROOTFS} ${POOL}/${BEDS}/${2}
         fi
         ;;
