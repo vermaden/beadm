@@ -80,8 +80,11 @@ __be_exist() { # 1=DATASET
 
 # check if boot environment nickname exists
 __be_nickname_exist() { # 1=NICKNAME
-  zfs get -d 2 -H -o value beadm:nickname ${POOL}/${BEDS} | grep -q -w "$1"
-  return $?
+  if ! zfs get -d 2 -H -o value beadm:nickname ${POOL}/${BEDS} | grep -q -w "$1"
+  then
+    return 1
+  fi
+  return 0
 }
 
 # Convert a BE nickname to dataset
@@ -192,8 +195,7 @@ EOF
         # Set nickname
         if [ -n "${NICKNAME}" ]
         then
-          zfs set beadm:nickname="${NICKNAME}" ${DATASET}
-          if [ $? -ne 0 ]
+          if ! zfs set beadm:nickname="${NICKNAME}" ${DATASET}
           then
             echo "WARNING: Unable to set nickname!"
           fi
