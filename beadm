@@ -84,6 +84,22 @@ __be_nickname_exist() { # 1=NICKNAME
   return $?
 }
 
+# Convert a BE nickname to dataset
+__convert_be_nickname() { # 1=NICKNAME
+  if ! zfs get -d 2 -H -o name,value beadm:nickname ${POOL}/${BEDS} | grep -w "$1" | awk '{print $1}' | sed "s|${POOL}/${BEDS}/||g" > /dev/null 2> /dev/null
+  then
+    return 1
+  fi
+
+  NICKDATASET=`zfs get -d 2 -H -o name,value beadm:nickname ${POOL}/${BEDS} | grep -w "$1" | awk '{print $1}' | sed "s|${POOL}/${BEDS}/||g"`
+  if zfs get -d 2 -H -o value beadm:nickname ${POOL}/${BEDS} | grep -q -w "$1"
+  then
+    return 0
+  else
+    return 1
+  fi
+}
+
 # check if argument is a snapshot
 __be_snapshot() { # 1=DATASET/SNAPSHOT
   echo "${1}" | grep -q "@" 2> /dev/null
@@ -455,6 +471,11 @@ case ${1} in
         fi
 	if [ -n "${5}" ]
 	then
+          if zfs list -H -o name "${POOL}/${BEDS}/${5}" 1> /dev/null 2> /dev/null
+          then
+            echo "ERROR: Boot environment '${5}' already exists"
+            exit 1
+          fi
 	  if __be_nickname_exist "${5}"
 	  then
             echo "ERROR: Boot environment nickname '${5}' already exists"
@@ -743,23 +764,47 @@ EOF
     then
       __usage
     fi
-    __be_exist ${POOL}/${BEDS}/${2}
-    if [ "${BOOTFS}" = "${POOL}/${BEDS}/${2}" ]
+    if ! __convert_be_nickname "$2"
     then
-      echo "ERROR: Renaming active boot environment is not supported"
-      exit 1
+      # Renaming a dataset
+      __be_exist ${POOL}/${BEDS}/${2}
+      if [ "${BOOTFS}" = "${POOL}/${BEDS}/${2}" ]
+      then
+        echo "ERROR: Renaming active boot environment is not supported"
+        exit 1
+      fi
+      if zfs list -H -o name ${POOL}/${BEDS}/${3} 2> /dev/null
+      then
+        echo "ERROR: Boot environment '${3}' already exists"
+        exit 1
+      fi
+      zfs rename ${POOL}/${BEDS}/${2} ${POOL}/${BEDS}/${3}
+    else
+      # Renaming a nickname
+      __be_exist ${POOL}/${BEDS}/${NICKDATASET}
+      if zfs list -H -o name "${POOL}/${BEDS}/${3}" 2> /dev/null
+      then
+        echo "ERROR: Boot environment '${3}' already exists"
+        exit 1
+      fi
+      if __be_nickname_exist "${3}"
+      then
+        echo "ERROR: Boot environment nickname '${3}' already exists"
+        exit 1
+      fi
+      if ! zfs set beadm:nickname="${3}" ${POOL}/${BEDS}/${NICKDATASET}
+      then
+        echo "ERROR: Unable to set nickname!"
+        exit 1
+      fi
     fi
-    if zfs list -H -o name ${POOL}/${BEDS}/${3} 2> /dev/null
-    then
-      echo "ERROR: Boot environment '${3}' already exists"
-      exit 1
-    fi
-    zfs rename ${POOL}/${BEDS}/${2} ${POOL}/${BEDS}/${3}
+
     # check if we need to update grub
     if [ "${GRUB}" = YES ]
     then
       __update_grub
     fi
+
     echo "Renamed successfully"
     ;;
 
