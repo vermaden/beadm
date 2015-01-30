@@ -47,6 +47,7 @@ __usage() {
   echo "usage:"
   echo "  ${NAME} activate <beName>"
   echo "  ${NAME} create [-e nonActiveBe | -e beName@snapshot] <beName> [nickname]"
+  echo "  ${NAME} create -r <beName> <replaceNickName>"
   echo "  ${NAME} create <beName@snapshot> [nickname]"
   echo "  ${NAME} destroy [-F] <beName | beName@snapshot | nickname>"
   echo "  ${NAME} list [-a] [-s] [-D] [-H] [-r]"
@@ -85,6 +86,19 @@ __be_nickname_exist() { # 1=NICKNAME
     return 1
   fi
   return 0
+}
+
+__be_get_nickname() {
+  if ! zfs get -d 1 -H -o value beadm:nickname ${1} | awk '{print $1}' | head -n 1 | sed 's|-||g' 2>/dev/null
+  then
+     return 1
+  fi
+  BENICKNAME=`zfs get -d 1 -H -o value beadm:nickname ${1} | awk '{print $1}' | head -n 1 | sed 's|-||g'`
+  if [ -z "$BENICKNAME" ] ; then
+    return 1
+  else
+    return 0
+  fi
 }
 
 # Convert a BE nickname to dataset
@@ -133,9 +147,20 @@ __be_clone() { # 1=DATASET
 }
 
 # create new boot environment
-__be_new() { # 1=SOURCE 2=TARGET 3=NICKNAME
+__be_new() { # 1=SOURCE 2=TARGET
   local SOURCE=$( echo ${1} | cut -d '@' -f 1 )
   local NICKNAME="$BENICK"
+
+  # If we are replacing a nickname
+  if [ ${REPLACEBENICK} -eq 1 ]
+  then
+    if ! zfs set beadm:nickname="${OLDBENICK}" ${SOURCE}
+    then
+      echo "ERROR: Unable to reset nickname!"
+      exit 1
+    fi
+  fi
+
   if __be_snapshot ${1}
   then
     # create boot environment from snapshot
@@ -164,6 +189,7 @@ __be_new() { # 1=SOURCE 2=TARGET 3=NICKNAME
       exit 1
     fi
   fi
+
   # clone properties of source boot environment
   zfs list -H -o name -r ${SOURCE} \
     | grep -v '@' \
@@ -464,39 +490,65 @@ case ${1} in
     ;;
 
   (create) # ------------------------------------------------------------------
+    REPLACEBENICK=0
     case ${#} in
       (4|5)
-        if ! [ ${2} = "-e" ]
+        if ! [ ${2} = "-e" -o ${2} = "-r" ]
         then
           __usage
         fi
-        # check if argument for -e option is full path dataset
-        # argument for -e option must be 'beName' or 'beName@snapshot'
-        if echo ${3} | grep -q "/" 2> /dev/null
-        then
-          __usage
-        fi
-        __be_exist ${POOL}/${BEDS}/${3}
-        if zfs list -H -o name ${POOL}/${BEDS}/${4} 1> /dev/null 2> /dev/null
-        then
-          echo "ERROR: Boot environment '${4}' already exists"
-          exit 1
-        fi
-	if [ -n "${5}" ]
+        if [ ${2} = "-e" ]
 	then
-          if zfs list -H -o name "${POOL}/${BEDS}/${5}" 1> /dev/null 2> /dev/null
+          # check if argument for -e option is full path dataset
+          # argument for -e option must be 'beName' or 'beName@snapshot'
+          if echo ${3} | grep -q "/" 2> /dev/null
           then
-            echo "ERROR: Boot environment '${5}' already exists"
+            __usage
+          fi
+          __be_exist ${POOL}/${BEDS}/${3}
+          if zfs list -H -o name ${POOL}/${BEDS}/${4} 1> /dev/null 2> /dev/null
+          then
+            echo "ERROR: Boot environment '${4}' already exists"
             exit 1
           fi
-	  if __be_nickname_exist "${5}"
+	  if [ -n "${5}" ]
 	  then
-            echo "ERROR: Boot environment nickname '${5}' already exists"
+            if zfs list -H -o name "${POOL}/${BEDS}/${5}" 1> /dev/null 2> /dev/null
+            then
+              echo "ERROR: Boot environment '${5}' already exists"
+              exit 1
+            fi
+	    if __be_nickname_exist "${5}"
+	    then
+              echo "ERROR: Boot environment nickname '${5}' already exists"
+              exit 1
+	    fi
+	    BENICK="${5}"
+	  fi
+          __be_new ${POOL}/${BEDS}/${3} ${POOL}/${BEDS}/${4}
+	fi
+        if [ ${2} = "-r" ]
+	then
+          if zfs list -H -o name ${POOL}/${BEDS}/${3} 1> /dev/null 2> /dev/null
+          then
+            echo "ERROR: Boot environment '${3}' already exists"
+            exit 1
+          fi
+	  if __be_nickname_exist "${4}"
+	  then
+            echo "ERROR: Boot environment nickname '${4}' already exists"
             exit 1
 	  fi
-	  BENICK="${5}"
+	  if ! __be_get_nickname ${ROOTFS}
+	  then
+            echo "ERROR: Boot environment '${ROOTFS}' does not have a nickname"
+            exit 1
+	  fi
+	  OLDBENICK="${BENICKNAME}"
+	  BENICK="${4}"
+	  REPLACEBENICK=1
+          __be_new ${ROOTFS} ${POOL}/${BEDS}/${3}
 	fi
-        __be_new ${POOL}/${BEDS}/${3} ${POOL}/${BEDS}/${4} "${5}"
         ;;
       (2|3)
         if __be_snapshot ${2}
@@ -507,15 +559,15 @@ case ${1} in
             exit 1
           fi
         else
-	if [ -n "${3}" ]
-	then
-	  if __be_nickname_exist "${3}"
+	  if [ -n "${3}" ]
 	  then
-            echo "ERROR: Boot environment nickname '${3}' already exists"
-            exit 1
+	    if __be_nickname_exist "${3}"
+	    then
+              echo "ERROR: Boot environment nickname '${3}' already exists"
+              exit 1
+	    fi
+	    BENICK="${3}"
 	  fi
-	  BENICK="${3}"
-	fi
           __be_new ${ROOTFS} ${POOL}/${BEDS}/${2}
         fi
         ;;
