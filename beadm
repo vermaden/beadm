@@ -649,6 +649,10 @@ EOF
     else
       DESTROY=${3}
     fi
+    if __convert_be_nickname "$DESTROY"
+    then
+      DESTROY=${NICKDATASET}
+    fi
     __be_exist ${POOL}/${BEDS}/${DESTROY}
     case ${#} in
       (2)
@@ -822,19 +826,24 @@ EOF
     ;;
 
   (mount) # ------------------------------------------------------------
+    MOUNTBE="${2}"
+    if __convert_be_nickname "$MOUNTBE"
+    then
+      MOUNTBE=${NICKDATASET}
+    fi
     if [ ${#} -eq 2 ]
     then
-      TARGET=$( mktemp -d -t BE-${2} )
+      TARGET=$( mktemp -d -t BE-${MOUNTBE} )
     elif [ ${#} -eq 3 ]
     then
       TARGET=${3}
     else
       __usage
     fi
-    __be_exist "${POOL}/${BEDS}/${2}"
-    if __be_mounted "${POOL}/${BEDS}/${2}"
+    __be_exist "${POOL}/${BEDS}/${MOUNTBE}"
+    if __be_mounted "${POOL}/${BEDS}/${MOUNTBE}"
     then
-      MNT=$( mount | grep -E "^${POOL}/${BEDS}/${2} " | awk '{print $3}' )
+      MNT=$( mount | grep -E "^${POOL}/${BEDS}/${MOUNTBE} " | awk '{print $3}' )
       echo "Boot environment '${2}' is already mounted at '${MNT}'"
       exit 1
     fi
@@ -843,18 +852,18 @@ EOF
       echo "ERROR: Cannot create '${TARGET}' mountpoint"
       exit 1
     fi
-    if ! mount -t zfs ${POOL}/${BEDS}/${2} ${TARGET}
+    if ! mount -t zfs ${POOL}/${BEDS}/${MOUNTBE} ${TARGET}
     then
       echo "ERROR: Cannot mount '${2}' at '${TARGET}' mountpoint"
       exit 1
     fi
-    zfs list -H -o name,mountpoint -r ${POOL}/${BEDS}/${2} \
+    zfs list -H -o name,mountpoint -r ${POOL}/${BEDS}/${MOUNTBE} \
       | grep -v -E "[[:space:]](legacy|none)$" \
       | sort -n \
-      | grep -E "^${POOL}/${BEDS}/${2}/" \
+      | grep -E "^${POOL}/${BEDS}/${MOUNTBE}/" \
       | while read FS MOUNTPOINT
         do
-          if [ "{FS}" != "${POOL}/${BEDS}/${2}" ]
+          if [ "{FS}" != "${POOL}/${BEDS}/${MOUNTBE}" ]
           then
             INHERIT=$( zfs get -H -o source mountpoint ${FS} )
             if [ "${INHERIT}" = "local" ]
@@ -864,7 +873,7 @@ EOF
                   continue
                   ;;
                 (*)
-                  MOUNTPOINT="/$( echo "${FS}" | sed s^"${POOL}/${BEDS}/${2}/"^^g )"
+                  MOUNTPOINT="/$( echo "${FS}" | sed s^"${POOL}/${BEDS}/${MOUNTBE}/"^^g )"
                   ;;
               esac
             fi
@@ -895,17 +904,22 @@ EOF
     else
       __usage
     fi
-    __be_exist "${POOL}/${BEDS}/${2}"
-    if ! __be_mounted "${POOL}/${BEDS}/${2}"
+    UMOUNTBE="${2}"
+    if __convert_be_nickname "$UMOUNTBE"
+    then
+      UMOUNTBE=${NICKDATASET}
+    fi
+    __be_exist "${POOL}/${BEDS}/${UMOUNTBE}"
+    if ! __be_mounted "${POOL}/${BEDS}/${UMOUNTBE}"
     then
       echo "Boot environment '${2}' is not mounted"
       exit 1
     fi
     MOUNT=$( mount )
-    MOUNTPOINT=$( echo "${MOUNT}" | grep -m 1 "^${POOL}/${BEDS}/${2} on " | awk '{print $3}' )
+    MOUNTPOINT=$( echo "${MOUNT}" | grep -m 1 "^${POOL}/${BEDS}/${UMOUNTBE} on " | awk '{print $3}' )
     echo "${MOUNT}" \
       | awk '{print $1}' \
-      | grep -E "^${POOL}/${BEDS}/${2}(/|$)" \
+      | grep -E "^${POOL}/${BEDS}/${UMOUNTBE}(/|$)" \
       | sort -n -r \
       | while read FS
         do
@@ -917,7 +931,7 @@ EOF
         done
     echo "Unmounted successfully"
     # only delete the temporary mountpoint directory
-    if echo "${MOUNTPOINT}" | grep -q -E "/BE-${2}\.[a-zA-Z0-9]{8}" 1> /dev/null 2> /dev/null
+    if echo "${MOUNTPOINT}" | grep -q -E "/BE-${UMOUNTBE}\.[a-zA-Z0-9]{8}" 1> /dev/null 2> /dev/null
     then
       # delete only when it is an empty directory
       if [ $( find ${MOUNTPOINT} | head | wc -l | bc ) -eq 1 ]
