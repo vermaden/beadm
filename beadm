@@ -531,15 +531,20 @@ case ${1} in
     then
       __usage
     fi
-    __be_exist ${POOL}/${BEDS}/${2}
-    if [ "${BOOTFS}" = "${POOL}/${BEDS}/${2}" ]
+    ACTBE="${2}"
+    if __convert_be_nickname "$ACTBE"
+    then
+      ACTBE=${NICKDATASET}
+    fi
+    __be_exist ${POOL}/${BEDS}/${ACTBE}
+    if [ "${BOOTFS}" = "${POOL}/${BEDS}/${ACTBE}" ]
     then
       echo "Already activated"
       exit 0
     else
-      if __be_mounted ${POOL}/${BEDS}/${2}
+      if __be_mounted ${POOL}/${BEDS}/${ACTBE}
       then
-        MNT=$( mount | grep -E "^${POOL}/${BEDS}/${2} " | awk '{print $3}' )
+        MNT=$( mount | grep -E "^${POOL}/${BEDS}/${ACTBE} " | awk '{print $3}' )
         if [ "${MNT}" != "/" ]
         then
           # boot environment is not current root and its mounted
@@ -554,9 +559,9 @@ case ${1} in
         fi
       fi
       # do not change root (/) mounted boot environment mountpoint
-      if [ "${ROOTFS}" != "${POOL}/${BEDS}/${2}" ]
+      if [ "${ROOTFS}" != "${POOL}/${BEDS}/${ACTBE}" ]
       then
-        TMPMNT=$( mktemp -d -t BE-${2} )
+        TMPMNT=$( mktemp -d -t BE-${ACTBE} )
         if ! mkdir -p ${TMPMNT} 2> /dev/null
         then
           echo "ERROR: Cannot create '${TMPMNT}' directory"
@@ -565,7 +570,7 @@ case ${1} in
         MOUNT=0
         while read FS MNT TYPE OPTS DUMP FSCK;
         do
-          if [ "${FS}" = "${POOL}/${BEDS}/${2}" ]
+          if [ "${FS}" = "${POOL}/${BEDS}/${ACTBE}" ]
           then
             MOUNT=${MNT}
             break
@@ -575,9 +580,9 @@ $( mount -p )
 EOF
         if [ ${MOUNT} -eq 0 ]
         then
-          zfs set canmount=noauto ${POOL}/${BEDS}/${2}
-          zfs set mountpoint=${TMPMNT} ${POOL}/${BEDS}/${2}
-          zfs mount ${POOL}/${BEDS}/${2}
+          zfs set canmount=noauto ${POOL}/${BEDS}/${ACTBE}
+          zfs set mountpoint=${TMPMNT} ${POOL}/${BEDS}/${ACTBE}
+          zfs mount ${POOL}/${BEDS}/${ACTBE}
         else
           TMPMNT=${MOUNT}
         fi
@@ -592,14 +597,14 @@ EOF
         then
           LOADER_CONFIGS="${LOADER_CONFIGS} ${TMPMNT}/boot/loader.conf.local"
         fi
-        sed -i '' -E s/"^vfs.root.mountfrom=.*$"/"vfs.root.mountfrom=\"zfs:${POOL}\/${BEDS}\/${2##*/}\""/g ${LOADER_CONFIGS}
+        sed -i '' -E s/"^vfs.root.mountfrom=.*$"/"vfs.root.mountfrom=\"zfs:${POOL}\/${BEDS}\/${ACTBE##*/}\""/g ${LOADER_CONFIGS}
         if [ ${MOUNT} -eq 0 ]
         then
-          zfs umount ${POOL}/${BEDS}/${2}
-          zfs set mountpoint=/ ${POOL}/${BEDS}/${2}
+          zfs umount ${POOL}/${BEDS}/${ACTBE}
+          zfs set mountpoint=/ ${POOL}/${BEDS}/${ACTBE}
         fi
       fi
-      if ! zpool set bootfs=${POOL}/${BEDS}/${2} ${POOL} 1> /dev/null 2> /dev/null
+      if ! zpool set bootfs=${POOL}/${BEDS}/${ACTBE} ${POOL} 1> /dev/null 2> /dev/null
       then
         echo "ERROR: Failed to activate '${2}' boot environment"
         exit 1
@@ -610,15 +615,15 @@ EOF
     # disable automatic mount on all inactive boot environments
     echo "${ZFS_LIST}" \
       | grep -v "^${POOL}/${BEDS}$" \
-      | grep -v "^${POOL}/${BEDS}/${2}$" \
-      | grep -v "^${POOL}/${BEDS}/${2}/" \
+      | grep -v "^${POOL}/${BEDS}/${ACTBE}$" \
+      | grep -v "^${POOL}/${BEDS}/${ACTBE}/" \
       | while read NAME
         do
           zfs set canmount=noauto ${NAME}
         done
     # enable automatic mount for active boot environment and promote it
     echo "${ZFS_LIST}" \
-      | grep -E "^${POOL}/${BEDS}/${2}(/|$)" \
+      | grep -E "^${POOL}/${BEDS}/${ACTBE}(/|$)" \
       | while read NAME
         do
           # If we are using GRUB, don't set canmount=on, since it clobbers
