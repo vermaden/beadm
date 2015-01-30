@@ -370,25 +370,30 @@ case ${1} in
           BE_HEAD = ""
         else {
           BE_HEAD = "BE"
-          printf "%-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", BE_HEAD, "Active", "Mountpoint", "Space", "Created"
+          if(OPTION_r == 1)
+            printf "%-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\t\t %s\n", BE_HEAD, "Active", "Mountpoint", "Space", "Created", "Nickname"
+	  else
+            printf "%-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", BE_HEAD, "Active", "Mountpoint", "Space", "Created"
         }
         if(OPTION_s != 1)
           SNAPSHOT_FILTER = "(/[^@]*)?$"
         for(I = 1; I <= length(BENAMES); I++) {
           BENAME = BENAMES[I]
+	  DATASETNAME=BENAME
           CMD_ZFS_NICK = "zfs get -d 2 -H -o value beadm:nickname " POOL "/" BEDS "/" BENAME
           while(CMD_ZFS_NICK | getline) {
 	    if ($1 != "-")
-              if(OPTION_r != 1)
+              if(OPTION_a != 1 && OPTION_s != 1 && OPTION_d != 1) {
 	        BENAME=$1
+	      }
 	  }
 
           if(OPTION_a == 1) {
             printf "\n"
-            print BENAME
+            print DATASETNAME
             for(J = 1; J <= length(FSNAMES); J++) {
               FSNAME = FSNAMES[J]
-              if(FSNAME ~ "^" BENAME_BEGINS_WITH "/" BENAME SNAPSHOT_FILTER) {
+              if(FSNAME ~ "^" BENAME_BEGINS_WITH "/" DATASETNAME SNAPSHOT_FILTER) {
                 ACTIVE = ""
                 if(FSNAME == ROOTFS)
                   ACTIVE = ACTIVE "N"
@@ -416,7 +421,7 @@ case ${1} in
           else {
             SPACE = 0
             ACTIVE = ""
-            NAME = BENAME_BEGINS_WITH "/" BENAME
+            NAME = BENAME_BEGINS_WITH "/" DATASETNAME
             if(NAME == ROOTFS)
               ACTIVE = ACTIVE "N"
             if(NAME == BOOTFS)
@@ -425,8 +430,8 @@ case ${1} in
               ACTIVE = "-"
             for(J = 1; J <= length(FSNAMES); J++) {
               FSNAME = FSNAMES[J]
-              if(FSNAME ~ "^" BENAME_BEGINS_WITH "/" BENAME "(/[^@]*)?$") {
-                if((BENAME_BEGINS_WITH "/" BENAME) == FSNAME) {
+              if(FSNAME ~ "^" BENAME_BEGINS_WITH "/" DATASETNAME "(/[^@]*)?$") {
+                if((BENAME_BEGINS_WITH "/" DATASETNAME) == FSNAME) {
                   MOUNTPOINT = MOUNTS[FSNAME]
                   if(! MOUNTPOINT)
                     MOUNTPOINT = "-"
@@ -444,9 +449,15 @@ case ${1} in
               }
             }
             if(OPTION_H == 1)
-              printf "%s\t%s\t%s\t%s\t%s\n", BENAME, ACTIVE, MOUNTPOINT, __show_units(SPACE), CREATION
+              if(OPTION_r == 1)
+                printf "%s\t%s\t%s\t%s\t%s\t%s\n", DATASETNAME, ACTIVE, MOUNTPOINT, __show_units(SPACE), CREATION, BENAME
+	      else
+                printf "%s\t%s\t%s\t%s\t%s\n", BENAME, ACTIVE, MOUNTPOINT, __show_units(SPACE), CREATION
             else
-              printf "%-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", BENAME, ACTIVE, MOUNTPOINT, __show_units(SPACE), CREATION
+              if(OPTION_r == 1)
+                printf "%-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\t %s\n", DATASETNAME, ACTIVE, MOUNTPOINT, __show_units(SPACE), CREATION, BENAME
+	      else
+                printf "%-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", BENAME, ACTIVE, MOUNTPOINT, __show_units(SPACE), CREATION
           }
         }
       }'
