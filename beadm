@@ -574,8 +574,18 @@ case ${1} in
       fi
       if ! __be_get_nickname ${FROMBE} 1> /dev/null 2>/dev/null
       then
-        echo "ERROR: Boot environment '${FROMBE}' does not have a nickname"
-        exit 1
+	# Try an auto-generated nick-name
+        BENICKNAME="nick-`echo ${FROMBE} | rev | cut -d "/" -f 1 | rev`"
+        if __be_nickname_exist "${BENICKNAME}"
+        then
+          echo "ERROR: Boot environment nickname '${BENICKNAME}' already exists"
+          exit 1
+        fi
+        if zfs list -H -o name ${POOL}/${BEDS}/${BENICKNAME} 1> /dev/null 2> /dev/null
+        then
+          echo "ERROR: Boot environment '${BENICKNAME}' already exists"
+          exit 1
+        fi
       fi
       OLDBENICK="${BENICK}"
       BENICK="${BENICKNAME}"
