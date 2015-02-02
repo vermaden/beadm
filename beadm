@@ -48,7 +48,7 @@ __usage() {
   echo "  ${NAME} activate <beName>"
   echo "  ${NAME} create [-r] [-e nonActiveBe | -e beName@snapshot] <beName>/<beName@snapshot> [nickname]"
   echo "  ${NAME} destroy [-F] <beName | beName@snapshot | nickname>"
-  echo "  ${NAME} list [-a] [-s] [-D] [-H] [-r]"
+  echo "  ${NAME} list [-a] [-s] [-D] [-H]"
   echo "  ${NAME} rename <origBeName> <newBeName>"
   echo "  ${NAME} mount <beName> [mountpoint]"
   echo "  ${NAME} { umount | unmount } [-f] <beName>"
@@ -283,7 +283,6 @@ case ${1} in
         (a) OPTION_a=1 ;;
         (D) OPTION_D=1 ;;
         (H) OPTION_H=1 ;;
-        (r) OPTION_r=1 ;;
         (s) OPTION_s=1
             OPTION_a=1 ;;
         (*) __usage    ;;
@@ -296,7 +295,6 @@ case ${1} in
         -v OPTION_a="${OPTION_a}" \
         -v OPTION_D="${OPTION_D}" \
         -v OPTION_H="${OPTION_H}" \
-        -v OPTION_r="${OPTION_r}" \
         -v OPTION_s="${OPTION_s}" \
      'function __normalize(VALUE) {
         if(VALUE == "-" || VALUE == 0)
@@ -394,10 +392,7 @@ case ${1} in
           BE_HEAD = ""
         else {
           BE_HEAD = "BE"
-          if(OPTION_r == 1)
-            printf "%-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\t\t %s\n", BE_HEAD, "Active", "Mountpoint", "Space", "Created", "Nickname"
-	  else
-            printf "%-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", BE_HEAD, "Active", "Mountpoint", "Space", "Created"
+          printf "%-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\t\t %s\n", BE_HEAD, "Active", "Mountpoint", "Space", "Created", "Nickname"
         }
         if(OPTION_s != 1)
           SNAPSHOT_FILTER = "(/[^@]*)?$"
@@ -407,9 +402,9 @@ case ${1} in
           CMD_ZFS_NICK = "zfs get -d 2 -H -o value beadm:nickname " POOL "/" BEDS "/" BENAME
           while(CMD_ZFS_NICK | getline) {
 	    if ($1 != "-")
-              if(OPTION_a != 1 && OPTION_s != 1 && OPTION_d != 1) {
 	        BENAME=$1
-	      }
+	    else
+	        BENAME=""
 	  }
 
           if(OPTION_a == 1) {
@@ -473,15 +468,9 @@ case ${1} in
               }
             }
             if(OPTION_H == 1)
-              if(OPTION_r == 1)
-                printf "%s\t%s\t%s\t%s\t%s\t%s\n", DATASETNAME, ACTIVE, MOUNTPOINT, __show_units(SPACE), CREATION, BENAME
-	      else
-                printf "%s\t%s\t%s\t%s\t%s\n", BENAME, ACTIVE, MOUNTPOINT, __show_units(SPACE), CREATION
+              printf "%s\t%s\t%s\t%s\t%s\t%s\n", DATASETNAME, ACTIVE, MOUNTPOINT, __show_units(SPACE), CREATION, BENAME
             else
-              if(OPTION_r == 1)
-                printf "%-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\t %s\n", DATASETNAME, ACTIVE, MOUNTPOINT, __show_units(SPACE), CREATION, BENAME
-	      else
-                printf "%-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\n", BENAME, ACTIVE, MOUNTPOINT, __show_units(SPACE), CREATION
+              printf "%-" FSNAME_LENGTH "s %-6s %-" MOUNTPOINT_LENGTH "s %6s %s\t %s\n", DATASETNAME, ACTIVE, MOUNTPOINT, __show_units(SPACE), CREATION, BENAME
           }
         }
       }'
