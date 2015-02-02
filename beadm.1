@@ -27,11 +27,11 @@ activate
 .Ao Ar beName Ac
 .Nm
 create
-.Op Fl e Ar nonActiveBe | Fl e Ar beName@snapshot
+.Op Fl r Fl e Ar nonActiveBe | Fl e Ar beName@snapshot
 .Ao Ar beName Ac
 .Nm
 create
-.Ao Ar beName@snapshot Ac
+.Ao Fl r Ar beName@snapshot Ac
 .Nm
 destroy
 .Op Fl F
@@ -81,12 +81,16 @@ Creates a new boot environment named
 .Ar beName .
 If the -e param is specified, the new environment will be cloned from the given
 .Ar nonActiveBe | Ar beName@snapshot .
+If the -r param is specified, the current BE nickname will be cloned
+and the old BE nickname will be replaced with the specified nickname.
 .Pp
 .It Ic create
 .Ao Ar beName@snapshot Ac
 .Pp
 Creates a snapshot of the existing boot environment named
 .Ar beName .
+If the -r param is specified, the current BE nickname will be cloned
+and the old BE nickname will be replaced with the specified nickname.
 .Pp
 .It
 .Ic destroy Op Fl F
