@@ -538,6 +538,15 @@ case ${1} in
        __usage
     fi
 
+    if [ ${OPTION_r} -eq 1 ]
+    then
+      if [ -z "$NEWBE" -o -z "$BENICK" ]
+      then
+        echo "ERROR: -r option requires both a <bename> and <nickname>"
+        exit 1
+      fi
+    fi
+
     FROMBE=""
     if [ "${OPTION_e}" -eq 1 ]
     then
