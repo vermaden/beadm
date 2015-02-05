@@ -538,13 +538,19 @@ case ${1} in
        __usage
     fi
 
+    # Do some sanity checking
     if [ ${OPTION_r} -eq 1 ]
     then
-      if [ -z "$NEWBE" -o -z "$BENICK" ]
+      if [ -z "${NEWBE}" -o -z "${BENICK}" ]
       then
         echo "ERROR: -r option requires both a <bename> and <nickname>"
         exit 1
       fi
+    fi
+    if [ "${NEWBE}" = "${BENICK}" ]
+    then
+      echo "ERROR: The dataset / nickname should not be identical"
+      exit 1
     fi
 
     FROMBE=""
