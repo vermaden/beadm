@@ -101,12 +101,12 @@ __be_get_nickname() {
 
 # Convert a BE nickname to dataset
 __convert_be_nickname() { # 1=NICKNAME
-  if ! zfs get -d 2 -H -o name,value beadm:nickname ${POOL}/${BEDS} | grep -w "$1" | awk '{print $1}' | sed "s|${POOL}/${BEDS}/||g" > /dev/null 2> /dev/null
+  if ! zfs get -d 2 -H -o name,value beadm:nickname ${POOL}/${BEDS} | grep -w "$1" | awk '{print $1}' | head -n 1 | sed "s|${POOL}/${BEDS}/||g" > /dev/null 2> /dev/null
   then
     return 1
   fi
 
-  NICKDATASET=`zfs get -d 2 -H -o name,value beadm:nickname ${POOL}/${BEDS} | grep -w "$1" | grep -v '@' | awk '{print $1}' | sed "s|${POOL}/${BEDS}/||g"`
+  NICKDATASET=`zfs get -d 2 -H -o name,value beadm:nickname ${POOL}/${BEDS} | grep -w "$1" | grep -v '@' | awk '{print $1}' | head -n 1 | sed "s|${POOL}/${BEDS}/||g"`
   if zfs get -d 2 -H -o value beadm:nickname ${POOL}/${BEDS} | grep -q -w "$1"
   then
     return 0
@@ -601,6 +601,16 @@ case ${1} in
           echo "ERROR: Boot environment '${BENICKNAME}' already exists"
           exit 1
         fi
+      fi
+      if [ "${BENICK}" = "${NEWBE}" ]
+      then
+          echo "ERROR: The nickname cannot be the same as the new BE name."
+          exit 1
+      fi
+      if [ "${BENICKNAME}" = "${NEWBE}" ]
+      then
+          echo "ERROR: The new nickname cannot be the same as the old BE nickname."
+          exit 1
       fi
       OLDBENICK="${BENICK}"
       BENICK="${BENICKNAME}"
