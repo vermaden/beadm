@@ -48,6 +48,7 @@ mount
 .Op mountpoint
 .Nm
 rename
+.Op Fl n
 .Ao Ar origBeName Ac
 .Ao Ar newBeName Ac
 .Nm
@@ -142,6 +143,8 @@ Renames the given nonactive
 .Ar origBeName
 to the given
 .Ar newBeName
+.Fl l
+If used, rename the nickname property only
 .Pp
 .It Ic umount
 .Op Fl f
