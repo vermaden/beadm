@@ -243,7 +243,7 @@ __wait_for_boot() {
   local BOOTTIME=$( sysctl -n kern.boottime | awk -F',' '{print $1}' | awk '{print $NF }' )
   local CURRTIME=$( date +%s )
   local UPTIME=$(( ${CURRTIME} - ${BOOTTIME} ))
-  WAIT=0
+  local WAIT=0
   while [ ${UPTIME} -lt ${BOOTDELAY} ]
   do
     sleep 1
@@ -295,7 +295,7 @@ __fstype() { # 1=DEV
     TYPE=EXT4
     return
   fi
-  if echo "${TYPE}" | grep -q 'DOS/MBR boot sector'
+  if echo "${TYPE}" | grep -q 'boot sector'
   then
     TYPE=$( file -r -k -b -L -s ${DEV} | sed -E 's/label:\ \".*\"//g' )
     if echo "${TYPE}" | grep -q 'Unix Fast File'
