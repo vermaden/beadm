@@ -899,7 +899,7 @@ EOF
     RENAMENICK="NO"
     if [ ${#} -eq 4 ]
     then
-      if [ $2 != "-n" ]
+      if [ "$2" != "-n" ]
       then
         __usage
       fi
@@ -912,6 +912,10 @@ EOF
       oName="$3"
       nName="$4"
     else
+      if [ "$2" = "-n" ]
+      then
+        __usage
+      fi
       # No -n specified, see if we have a nickname match
       if __convert_be_nickname "$2"
       then
