@@ -24,6 +24,7 @@
 .Sh SYNOPSIS
 .Nm
 activate
+.Op Fl n
 .Ao Ar beName Ac
 .Nm
 create
@@ -35,6 +36,7 @@ create
 .Nm
 destroy
 .Op Fl F
+.Op Fl n
 .Ao Ar beName | beName@snapshot Ac
 .Nm
 list
@@ -45,6 +47,7 @@ list
 .Nm
 mount
 .Ao Ar beName Ac
+.Op Fl n
 .Op mountpoint
 .Nm
 rename
@@ -54,6 +57,7 @@ rename
 .Nm
 { umount | unmount }
 .Op Fl f
+.Op Fl n
 .Ao Ar beName Ac
 .Sh DESCRIPTION
 The
@@ -93,7 +97,9 @@ If the -r param is specified, the current BE nickname will be cloned
 and the old BE nickname will be replaced with the specified nickname.
 .Pp
 .It
-.Ic destroy Op Fl F
+.Ic destroy
+.Op Fl F
+.Op Fl n
 .Ao Ar beName | beName@snapshot Ac
 .Pp
 Destroys the given
@@ -104,6 +110,9 @@ snapshot.
 Specifying
 .Fl F
 will automatically unmount without confirmation.
+If
+.Fl n
+used, resolve the BE nickname
 .Pp
 .It Ic list
 .Op Fl a
@@ -129,6 +138,7 @@ If
 is used, display all snapshots as well.
 .Pp
 .It Ic mount
+.Op Fl n
 .Ao Ar beName Ac
 .Op mountpoint
 .Pp
@@ -136,24 +146,34 @@ Temporarily mount the boot environment.
 Mount at the specified
 .Ar mountpoint
 if provided.
+If
+.Fl n
+used, resolve the BE nickname
 .Pp
-.It Ic rename Ao Ar origBeName Ac Ao Ar newBeName Ac
+.It Ic rename
+.Op Fl n
+.Ao Ar origBeName Ac Ao Ar newBeName Ac
 .Pp
 Renames the given nonactive
 .Ar origBeName
 to the given
 .Ar newBeName
-.Fl l
-If used, rename the nickname property only
+If
+.Fl n
+used, rename the nickname property only
 .Pp
 .It Ic umount
 .Op Fl f
+.Op Fl n
 .Ao Ar beName Ac
 .Pp
 Unmount the given boot environment, if it is mounted.
 Specifying
 .Fl f
 will force the unmount if busy.
+If
+.Fl n
+used, resolve the BE nickname
 .Pp
 .El
 .Sh EXAMPLES

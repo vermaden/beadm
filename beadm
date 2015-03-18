@@ -38,20 +38,20 @@ fi
 
 if [ "${1}" = "--version" -o "${1}" = "version" ]
 then
-  echo "beadm 1.4 2015/03/02"
+  echo "beadm 1.5 2015/03/18"
   exit 0
 fi
 
 __usage() {
   local NAME=${0##*/}
   echo "usage:"
-  echo "  ${NAME} activate <beName>"
+  echo "  ${NAME} activate [-n] <beName>"
   echo "  ${NAME} create [-r] [-e nonActiveBe | -e beName@snapshot] <beName>/<beName@snapshot> [nickname]"
-  echo "  ${NAME} destroy [-F] <beName | beName@snapshot | nickname>"
+  echo "  ${NAME} destroy [-F] [-n] <beName | beName@snapshot | nickname>"
   echo "  ${NAME} list [-a] [-s] [-D] [-H]"
   echo "  ${NAME} rename [-n] <origBeName> <newBeName>"
-  echo "  ${NAME} mount <beName> [mountpoint]"
-  echo "  ${NAME} { umount | unmount } [-f] <beName>"
+  echo "  ${NAME} mount [-n] <beName> [mountpoint]"
+  echo "  ${NAME} { umount | unmount } [-f] [-n] <beName>"
   exit 1
 }
 
@@ -637,15 +637,34 @@ case ${1} in
     ;;
 
   (activate) # ----------------------------------------------------------------
-    if [ ${#} -ne 2 ]
+    if [ ${#} -ne 2 -a ${#} -ne 3 ]
     then
       __usage
     fi
-    ACTBE="${2}"
-    if __convert_be_nickname "$ACTBE"
+
+    if [ ${#} -eq 3 ]
     then
-      ACTBE=${NICKDATASET}
+      if [ "${2}" != "-n" ]
+      then
+        __usage
+      fi
+      if ! __convert_be_nickname "${3}"
+      then
+         echo "ERROR: -n specified, but no BE nickname match found"
+         exit 1
+      fi
+      if __convert_be_nickname "${3}"
+      then
+        ACTBE=${NICKDATASET}
+      fi
+    else
+      if [ "${2}" = "-n" ]
+      then
+        __usage
+      fi
+      ACTBE="${2}"
     fi
+
     __be_exist ${POOL}/${BEDS}/${ACTBE}
     if [ "${BOOTFS}" = "${POOL}/${BEDS}/${ACTBE}" ]
     then
@@ -758,34 +777,64 @@ EOF
     ;;
 
   (destroy) # -----------------------------------------------------------------
-    if [ "${2}" != "-F" ]
+    if [ ${#} -ne 2 -a ${#} -ne 3 -a ${#} -ne 4 ]
     then
-      DESTROY=${2}
-    else
-      DESTROY=${3}
+      __usage
     fi
-    if __convert_be_nickname "$DESTROY"
-    then
-      DESTROY=${NICKDATASET}
-    fi
-    __be_exist ${POOL}/${BEDS}/${DESTROY}
+    FORCE="NO"
+
     case ${#} in
-      (2)
-        echo "Are you sure you want to destroy '${2}'?"
+      (2) if [ "${2}" = "-n" -o "${2}" = "-F" ]
+          then
+            __usage
+          fi
+	  DESTROY="${2}"
+          ;;
+      (3) if [ "${2}" = "-n" ]
+          then
+            if ! __convert_be_nickname "${3}"
+            then
+              echo "ERROR: -n specified, but no BE nickname match found"
+              exit 1
+            fi
+            DESTROY="${NICKDATASET}"
+	  elif [ "${2}" = "-F" ] ; then
+            FORCE="YES"
+            DESTROY="${3}"
+          else
+            __usage
+          fi
+          ;;
+      (4) if [ "${2}" = "-n" -a "${3}" = "-F" ]
+          then
+            if ! __convert_be_nickname "${4}"
+            then
+              echo "ERROR: -n specified, but no BE nickname match found"
+              exit 1
+            fi
+            DESTROY="${NICKDATASET}"
+            FORCE="YES"
+	  elif [ "${2}" = "-F" -a "${3}" = "-n" ] ; then
+            if ! __convert_be_nickname "${4}"
+            then
+              echo "ERROR: -n specified, but no BE nickname match found"
+              exit 1
+            fi
+            DESTROY="${NICKDATASET}"
+            FORCE="YES"
+          else
+            __usage
+          fi
+          ;;
+    esac
+
+    __be_exist ${POOL}/${BEDS}/${DESTROY}
+    if [ "${FORCE}" = "NO" ] ; then
+        echo "Are you sure you want to destroy '${DESTROY}'?"
         echo -n "This action cannot be undone (y/[n]): "
         read CHOICE
-        ;;
-      (3)
-        if [ "${2}" != "-F" ]
-        then
-          __usage
-        fi
-        CHOICE=Y
-        ;;
-      (*)
-        __usage
-        ;;
-    esac
+    fi
+
     if [ "${BOOTFS}" = "${POOL}/${BEDS}/${DESTROY}" ]
     then
       echo "ERROR: Cannot destroy active boot environment"
@@ -896,6 +945,7 @@ EOF
     then
       __usage
     fi
+
     RENAMENICK="NO"
     if [ ${#} -eq 4 ]
     then
@@ -915,11 +965,6 @@ EOF
       if [ "$2" = "-n" ]
       then
         __usage
-      fi
-      # No -n specified, see if we have a nickname match
-      if __convert_be_nickname "$2"
-      then
-         RENAMENICK="YES"
       fi
       oName="$2"
       nName="$3"
@@ -965,20 +1010,49 @@ EOF
     ;;
 
   (mount) # ------------------------------------------------------------
-    MOUNTBE="${2}"
-    if __convert_be_nickname "$MOUNTBE"
+    if [ ${#} -eq 3 ]
     then
-      MOUNTBE=${NICKDATASET}
-    fi
-    if [ ${#} -eq 2 ]
+      if [ "$2" = "-n" ]
+      then
+        if ! __convert_be_nickname "${3}"
+        then
+           echo "ERROR: -n specified, but no BE nickname match found"
+           exit 1
+        fi
+        if __convert_be_nickname "${3}"
+        then
+          MOUNTBE=${NICKDATASET}
+        fi
+        TARGET=$( mktemp -d -t BE-${MOUNTBE} )
+      else
+        MOUNTBE="${2}"
+	TARGET="${3}"
+      fi
+    elif [ ${#} -eq 4 ]
     then
-      TARGET=$( mktemp -d -t BE-${MOUNTBE} )
-    elif [ ${#} -eq 3 ]
-    then
-      TARGET=${3}
+      if [ "${2}" != "-n" ]
+      then
+	__usage
+      fi
+      if ! __convert_be_nickname "${3}"
+      then
+         echo "ERROR: -n specified, but no BE nickname match found"
+         exit 1
+      fi
+      if __convert_be_nickname "${3}"
+      then
+        MOUNTBE=${NICKDATASET}
+      fi
+      TARGET="${4}"
     else
-      __usage
+      if [ "${2}" = "-n" ]
+      then
+        __usage
+      fi
+      MOUNTBE="${2}"
+      TARGET=$( mktemp -d -t BE-${MOUNTBE} )
     fi
+
     __be_exist "${POOL}/${BEDS}/${MOUNTBE}"
     if __be_mounted "${POOL}/${BEDS}/${MOUNTBE}"
     then
@@ -1038,16 +1112,68 @@ EOF
       :
     elif [ ${#} -eq 3 -a "${2}" = "-f" ]
     then
-      OPTS="-f"
       shift
     else
       __usage
     fi
-    UMOUNTBE="${2}"
-    if __convert_be_nickname "$UMOUNTBE"
+
+    if [ ${#} -eq 3 ]
     then
-      UMOUNTBE=${NICKDATASET}
+      if [ "${2}" = "-n" ]
+      then
+        if ! __convert_be_nickname "${3}"
+        then
+           echo "ERROR: -n specified, but no BE nickname match found"
+           exit 1
+        fi
+        if __convert_be_nickname "${3}"
+        then
+          UMOUNTBE=${NICKDATASET}
+        fi
+      elif [ "${2}" = "-f" ]
+      then
+        OPTS="-f"
+        UMOUNTBE="${3}"
+      else
+	__usage
+      fi
+    elif [ ${#} -eq 4 ]
+    then
+      if [ "${2}" = "-n" -a "${3}" = "-f" ]
+      then
+        if ! __convert_be_nickname "${4}"
+        then
+           echo "ERROR: -n specified, but no BE nickname match found"
+           exit 1
+        fi
+        if __convert_be_nickname "${4}"
+        then
+          UMOUNTBE=${NICKDATASET}
+        fi
+        OPTS="-f"
+      elif [ "${2}" = "-f" -a "${3}" = "-n" ]
+      then
+        if ! __convert_be_nickname "${4}"
+        then
+           echo "ERROR: -n specified, but no BE nickname match found"
+           exit 1
+        fi
+        if __convert_be_nickname "${4}"
+        then
+          UMOUNTBE=${NICKDATASET}
+        fi
+        OPTS="-f"
+      else
+        __usage
+      fi
+    else
+      if [ "${2}" = "-n" ]
+      then
+        __usage
+      fi
+      UMOUNTBE="${2}"
     fi
+
     __be_exist "${POOL}/${BEDS}/${UMOUNTBE}"
     if ! __be_mounted "${POOL}/${BEDS}/${UMOUNTBE}"
     then
