@@ -829,10 +829,12 @@ EOF
     esac
 
     __be_exist ${POOL}/${BEDS}/${DESTROY}
-    if [ "${FORCE}" = "NO" ] ; then
+    if [ "${FORCE}" != "YES" ] ; then
         echo "Are you sure you want to destroy '${DESTROY}'?"
         echo -n "This action cannot be undone (y/[n]): "
         read CHOICE
+    else
+        CHOICE="y"
     fi
 
     if [ "${BOOTFS}" = "${POOL}/${BEDS}/${DESTROY}" ]
