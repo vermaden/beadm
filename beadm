@@ -38,7 +38,7 @@ fi
 
 if [ "${1}" = "--version" -o "${1}" = "version" ]
 then
-  echo "beadm 1.5 2015/03/18"
+  echo "beadm 1.5.2 2015/03/19"
   exit 0
 fi
 
@@ -296,6 +296,9 @@ fi
 
 # update GRUB bootloader instead of FreeBSD's loader(8)
 : ${GRUB="NO"}
+
+# Use NICKNAME as the source of truth when referencing BEs
+: ${NICKNAME_ONLY="NO"}
 
 # use other prefix then the 'pool/ROOT/bename' default
 : ${BEDS="$( echo ${ROOTFS} | awk -F '/' '{print $2}' )"}
@@ -637,6 +640,7 @@ case ${1} in
     ;;
 
   (activate) # ----------------------------------------------------------------
+    GOTNICK="NO"
     if [ ${#} -ne 2 -a ${#} -ne 3 ]
     then
       __usage
@@ -653,16 +657,24 @@ case ${1} in
          echo "ERROR: -n specified, but no BE nickname match found"
          exit 1
       fi
-      if __convert_be_nickname "${3}"
-      then
-        ACTBE=${NICKDATASET}
-      fi
+      ACTBE="${NICKDATASET}"
+      GOTNICK="YES"
     else
       if [ "${2}" = "-n" ]
       then
         __usage
       fi
       ACTBE="${2}"
+    fi
+
+    if [ "${NICKNAME_ONLY}" = YES -a "${GOTNICK}" = "NO" ]
+    then
+      if ! __convert_be_nickname "${ACTBE}"
+      then
+         echo "ERROR: NICKNAME_ONLY set, but no BE nickname match found"
+         exit 1
+      fi
+      ACTBE="${NICKDATASET}"
     fi
 
     __be_exist ${POOL}/${BEDS}/${ACTBE}
@@ -782,6 +794,7 @@ EOF
       __usage
     fi
     FORCE="NO"
+    GOTNICK="NO"
 
     case ${#} in
       (2) if [ "${2}" = "-n" -o "${2}" = "-F" ]
@@ -798,6 +811,7 @@ EOF
               exit 1
             fi
             DESTROY="${NICKDATASET}"
+            GOTNICK="YES"
 	  elif [ "${2}" = "-F" ] ; then
             FORCE="YES"
             DESTROY="${3}"
@@ -814,6 +828,7 @@ EOF
             fi
             DESTROY="${NICKDATASET}"
             FORCE="YES"
+            GOTNICK="YES"
 	  elif [ "${2}" = "-F" -a "${3}" = "-n" ] ; then
             if ! __convert_be_nickname "${4}"
             then
@@ -822,11 +837,22 @@ EOF
             fi
             DESTROY="${NICKDATASET}"
             FORCE="YES"
+            GOTNICK="YES"
           else
             __usage
           fi
           ;;
     esac
+
+    if [ "${NICKNAME_ONLY}" = YES -a "${GOTNICK}" = "NO" ]
+    then
+      if ! __convert_be_nickname "${DESTROY}"
+      then
+         echo "ERROR: NICKNAME_ONLY set, but no BE nickname match found"
+         exit 1
+      fi
+      DESTROY="${NICKDATASET}"
+    fi
 
     __be_exist ${POOL}/${BEDS}/${DESTROY}
     if [ "${FORCE}" != "YES" ] ; then
@@ -949,6 +975,7 @@ EOF
     fi
 
     RENAMENICK="NO"
+    GOTNICK="NO"
     if [ ${#} -eq 4 ]
     then
       if [ "$2" != "-n" ]
@@ -963,6 +990,7 @@ EOF
       fi
       oName="$3"
       nName="$4"
+      GOTNICK="YES"
     else
       if [ "$2" = "-n" ]
       then
@@ -970,6 +998,16 @@ EOF
       fi
       oName="$2"
       nName="$3"
+    fi
+
+    if [ "${NICKNAME_ONLY}" = YES -a "${GOTNICK}" = "NO" ]
+    then
+      if ! __convert_be_nickname "${oName}"
+      then
+         echo "ERROR: NICKNAME_ONLY set, but no BE nickname match found"
+         exit 1
+      fi
+      RENAMENICK="YES"
     fi
 
     if [ "${RENAMENICK}" = "NO" ]
@@ -1012,6 +1050,7 @@ EOF
     ;;
 
   (mount) # ------------------------------------------------------------
+    GOTNICK="NO"
     if [ ${#} -eq 3 ]
     then
       if [ "$2" = "-n" ]
@@ -1021,10 +1060,8 @@ EOF
            echo "ERROR: -n specified, but no BE nickname match found"
            exit 1
         fi
-        if __convert_be_nickname "${3}"
-        then
-          MOUNTBE=${NICKDATASET}
-        fi
+        MOUNTBE=${NICKDATASET}
+        GOTNICK="YES"
         TARGET=$( mktemp -d -t BE-${MOUNTBE} )
       else
         MOUNTBE="${2}"
@@ -1041,10 +1078,8 @@ EOF
          echo "ERROR: -n specified, but no BE nickname match found"
          exit 1
       fi
-      if __convert_be_nickname "${3}"
-      then
-        MOUNTBE=${NICKDATASET}
-      fi
+      MOUNTBE=${NICKDATASET}
+      GOTNICK="YES"
       TARGET="${4}"
     else
       if [ "${2}" = "-n" ]
@@ -1053,6 +1088,16 @@ EOF
       fi
       MOUNTBE="${2}"
       TARGET=$( mktemp -d -t BE-${MOUNTBE} )
+    fi
+
+    if [ "${NICKNAME_ONLY}" = YES -a "${GOTNICK}" = "NO" ]
+    then
+      if ! __convert_be_nickname "${MOUNTBE}"
+      then
+         echo "ERROR: NICKNAME_ONLY set, but no BE nickname match found"
+         exit 1
+      fi
+      MOUNTBE="${NICKDATASET}"
     fi
 
     __be_exist "${POOL}/${BEDS}/${MOUNTBE}"
@@ -1108,6 +1153,7 @@ EOF
     ;;
 
   (umount|unmount) # ----------------------------------------------------------
+    GOTNICK="NO"
     if [ ${#} -eq 2 ]
     then
       # we need this empty section for argument checking
@@ -1128,10 +1174,8 @@ EOF
            echo "ERROR: -n specified, but no BE nickname match found"
            exit 1
         fi
-        if __convert_be_nickname "${3}"
-        then
-          UMOUNTBE=${NICKDATASET}
-        fi
+        UMOUNTBE=${NICKDATASET}
+	GOTNICK="YES"
       elif [ "${2}" = "-f" ]
       then
         OPTS="-f"
@@ -1148,10 +1192,8 @@ EOF
            echo "ERROR: -n specified, but no BE nickname match found"
            exit 1
         fi
-        if __convert_be_nickname "${4}"
-        then
-          UMOUNTBE=${NICKDATASET}
-        fi
+        UMOUNTBE=${NICKDATASET}
+	GOTNICK="YES"
         OPTS="-f"
       elif [ "${2}" = "-f" -a "${3}" = "-n" ]
       then
@@ -1160,10 +1202,8 @@ EOF
            echo "ERROR: -n specified, but no BE nickname match found"
            exit 1
         fi
-        if __convert_be_nickname "${4}"
-        then
-          UMOUNTBE=${NICKDATASET}
-        fi
+        UMOUNTBE=${NICKDATASET}
+	GOTNICK="YES"
         OPTS="-f"
       else
         __usage
@@ -1174,6 +1214,16 @@ EOF
         __usage
       fi
       UMOUNTBE="${2}"
+    fi
+
+    if [ "${NICKNAME_ONLY}" = YES -a "${GOTNICK}" = "NO" ]
+    then
+      if ! __convert_be_nickname "${UMOUNTBE}"
+      then
+         echo "ERROR: NICKNAME_ONLY set, but no BE nickname match found"
+         exit 1
+      fi
+      UMOUNTBE="${NICKDATASET}"
     fi
 
     __be_exist "${POOL}/${BEDS}/${UMOUNTBE}"
