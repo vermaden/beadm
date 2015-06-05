@@ -1,6 +1,6 @@
 #! /bin/sh
 
-# Copyright (c) 2012-2013 Slawomir Wojciech Wojtczak (vermaden)
+# Copyright (c) 2012-2015 Slawomir Wojciech Wojtczak (vermaden)
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -117,13 +117,27 @@ BOOTDELAY (set to 45 seconds by default)
 
   example: BOOTDELAY="30"
 
+NOTIFY (set to NO by default)
+  Use 'notify-send' and 'libnotify' to show notifications
+  of mounting and unmounting devices on the desktop.
+  Note that you have to call 'xhost +local:' command in
+  your '~/.xinitrc' file for this to work.
+
+  example: NOTIFY="YES"
+
+WALL (set to NO by default)
+  Use wall(1) to show notifications of mounting and
+  unmounting devices on terminals of logged in users.
+
+  example: WALL="YES"
+
 EOF
   exit 0
 }
 
 if [ "${1}" = "--version" ]
 then
-  echo "automount 1.5.4 2015/03/01"
+  echo "automount 1.5.5 2015/06/06"
   exit 0
 fi
 
@@ -151,6 +165,8 @@ fi
 : ${TIMEOUT="8"}                      # stop waiting for device after that time
 : ${DELAY="1"}                        # check for the device node that often
 : ${BOOTDELAY="45"}                   # wait for boot process to complete
+: ${NOTIFY="NO"}                      # use 'notify-send' and 'libnotify'
+: ${WALL="NO"}                        # use 'wall(1)'
 
 if [ "${USERUMOUNT}" = YES ]
 then
@@ -177,6 +193,14 @@ __state_add() { # 1=DEV 2=PROVIDER 3=MNT
     fi
   fi
   echo "${1} ${2} ${3}" >> ${STATE}
+  if [ "${NOTIFY}" = YES ]
+  then
+    env DISPLAY=:0 notify-send automount "Device '${1}' mounted on '${3}' directory."
+  fi
+  if [ "${WALL}" = YES ]
+  then
+    echo "automount: Device '${1}' mounted on '${3}' directory." | wall
+  fi
 }
 
 __state_remove() { # 1=MNT
@@ -184,6 +208,14 @@ __state_remove() { # 1=MNT
   then
     BSMNT=$( echo ${1} | sed 's/\//\\\//g' ) # backslash the slashes ;)
     sed -i '' "/${BSMNT}\$/d" ${STATE}
+    if [ "${NOTIFY}" = YES ]
+    then
+      env DISPLAY=:0 notify-send automount "Device '${1}' unmounted from '${3}' directory."
+    fi
+    if [ "${WALL}" = YES ]
+    then
+      echo "automount: Device '${1}' unmounted from '${3}' directory." | wall
+    fi
   fi
 }
 
@@ -261,6 +293,11 @@ __random_wait() {
   RANDOM=$( head -c 256 /dev/urandom | env LC_ALL=C tr -c -d '1-9' )
   MODULO=$(( ${RANDOM} % 24 ))
   WAIT=$( echo ${MODULO} / 10 | bc -l )
+  WAIT_TEST=$( echo ${WAIT} | awk -F'.' '{print $1}' )
+  if [ "${WAIT_TEST}" = "" ]
+  then
+    WAIT="0${WAIT}"
+  fi
   WAIT=$( printf "%.1f" ${WAIT} )
   sleep ${WAIT}
   __log "${DEV}: random wait for '${WAIT}' seconds before 'attach' action"
