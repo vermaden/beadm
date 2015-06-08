@@ -340,14 +340,14 @@ __fstype() { # 1=DEV
       TYPE=UFS
       return
     fi
-    if echo "${TYPE}" | grep -q 'FAT'
-    then
-      TYPE=FAT
-      return
-    fi
     if echo "${TYPE}" | grep -q 'NTFS'
     then
       TYPE=NTFS
+      return
+    fi
+    if echo "${TYPE}" | grep -q 'FAT'
+    then
+      TYPE=FAT
       return
     fi
   fi
