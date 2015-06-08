@@ -137,7 +137,7 @@ EOF
 
 if [ "${1}" = "--version" ]
 then
-  echo "automount 1.5.5 2015/06/06"
+  echo "automount 1.5.6 2015/06/08"
   exit 0
 fi
 
