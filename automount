@@ -345,6 +345,16 @@ __fstype() { # 1=DEV
       TYPE=NTFS
       return
     fi
+    if echo "${TYPE}" | grep -q 'MSDOS'
+    then
+      TYPE=FAT
+      return
+    fi
+    if echo "${TYPE}" | grep -q 'FAT (32 bit)'
+    then
+      TYPE=FAT
+      return
+    fi
     if echo "${TYPE}" | grep -q 'FAT'
     then
       TYPE=FAT
