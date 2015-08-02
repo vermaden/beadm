@@ -135,9 +135,9 @@ EOF
   exit 0
 }
 
-if [ "${1}" = "--version" ]
+if [ "${1}" = "--version" -o "${1}" = "-version" ]
 then
-  echo "automount 1.5.6 2015/06/08"
+  echo "automount 1.5.7 2015/08/02"
   exit 0
 fi
 
