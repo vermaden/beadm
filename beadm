@@ -37,7 +37,7 @@ fi
 
 if [ "${1}" = "--version" -o "${1}" = "version" ]
 then
-  echo "beadm 1.2.2 2015/04/01"
+  echo "beadm 1.2.3 2015/09/08"
   exit 0
 fi
 
@@ -108,6 +108,25 @@ __be_clone() { # 1=DATASET
 
 # create new boot environment
 __be_new() { # 1=SOURCE 2=TARGET
+  local NAME_NEW=$( basename "${2}" )
+  local NAME_SANITY=$( echo "${NAME_NEW}" | tr -c -d 'a-zA-Z0-9-_.,' )
+  if [ "${NAME_NEW}" != "${NAME_SANITY}" ]
+  then
+    echo "ERROR: Can not create boot environment with '${NAME_NEW}' name"
+    echo
+    echo "Allowed characters for boot environment are:"
+    echo "  alphanumeric characters: 'a-z' 'A-Z' '0-9'"
+    echo "  hypen: '-'"
+    echo "  underscore: '_'"
+    echo "  dot: '.'"
+    echo "  comma: ','"
+    echo
+    echo "Name '${NAME_SANITY}' which uses only allowed characters can be used"
+    echo
+    exit 1
+  fi
+  unset NAME_NEW
+  unset NAME_SANITY
   local SOURCE=$( echo ${1} | cut -d '@' -f 1 )
   if __be_snapshot ${1}
   then
@@ -525,7 +544,7 @@ EOF
       fi
     fi
     # execute ZFS LIST only once
-    ZFS_LIST=$( zfs list -H -o name -r ${POOL}/${BEDS} )
+    ZFS_LIST=$( zfs list -t filesystem -H -o name -r ${POOL}/${BEDS} )
     # disable automatic mount on all inactive boot environments
     echo "${ZFS_LIST}" \
       | grep -v "^${POOL}/${BEDS}$" \
