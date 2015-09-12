@@ -128,6 +128,23 @@ __be_new() { # 1=SOURCE 2=TARGET
   unset NAME_NEW
   unset NAME_SANITY
   local SOURCE=$( echo ${1} | cut -d '@' -f 1 )
+  # secure current /boot/entropy file
+  if [ -f /boot/entropy ]
+  then
+    cp -p /boot/entropy /boot/entropy.OLD
+  fi
+  # create new /boot/entropy file that would be used in new boot environment
+  if ! dd if=/dev/random of=/boot/entropy bs=4096 count=1 1> /dev/null 2> /dev/null
+  then
+    echo "ERROR: Can not generate new '/boot/entropy' file"
+    exit 1
+  fi
+  # bring back secured /boot/entropy.OLD file
+  if [ -f /boot/entropy.OLD ]
+  then
+    mv /boot/entropy.OLD /boot/entropy
+  fi
+  # create snapshot that will be used as a base for new boot environment
   if __be_snapshot ${1}
   then
     # create boot environment from snapshot
