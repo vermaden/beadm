@@ -37,7 +37,7 @@ fi
 
 if [ "${1}" = "--version" -o "${1}" = "version" ]
 then
-  echo "beadm 1.2.6 2015/09/17"
+  echo "beadm 1.5.3 2015/09/24"
   exit 0
 fi
 
@@ -54,6 +54,15 @@ __usage() {
   exit 1
 }
 
+# Check if we need to run any boot config to activate new BE
+__check_boot_updates() {
+  # check if we need to update grub
+  __update_grub
+
+  # Check if we need to update EFI loader.rc
+  __update_efi_loader
+}
+
 # check if system has a grub.cfg file and update it
 __update_grub() {
   if [ -e /boot/grub/grub.cfg ]
@@ -64,6 +73,23 @@ __update_grub() {
     else
       echo "WARNING: Failed to update GRUB configuration"
     fi
+  fi
+}
+
+# check if system has a EFI loader.rc file and update it
+__update_efi_loader() {
+  if [ -e /boot/efi/boot/loader.rc ]
+  then
+    BOOTFS=$( zpool list -H -o bootfs ${POOL} )
+    touch /tmp/.be.loads.$$
+    cat /boot/efi/boot/loader.rc | grep 'load /' > /tmp/.be.loads.$$
+    cat > /boot/efi/boot/loader.rc << EOF
+unload
+set currdev=zfs:${BOOTFS}:
+EOF
+    cat /tmp/.be.loads.$$ >> /boot/efi/boot/loader.rc
+    rm /tmp/.be.loads.$$
+    echo "autoboot" >> /boot/efi/boot/loader.rc
   fi
 }
 
@@ -322,12 +348,7 @@ EOF
           fi
         fi
       done
-
-      # check if we need to update grub
-      if [ "${GRUB}" = YES ]
-      then
-        __update_grub
-      fi
+      __check_boot_updates
 }
 
 ROOTFS=$( mount | awk '/ \/ / {print $1}' )
@@ -845,11 +866,7 @@ EOF
             zfs promote ${NAME}
           done
         done
-    # check if we need to update grub
-    if [ "${GRUB}" = YES ]
-    then
-      __update_grub
-    fi
+    __check_boot_updates
     echo "Activated successfully"
     ;;
 
@@ -1020,11 +1037,7 @@ EOF
                     done
               done
         fi
-        # check if we need to update grub
-        if [ "${GRUB}" = YES ]
-        then
-          __update_grub
-        fi
+        __check_boot_updates
         echo "Destroyed successfully"
         ;;
       (*)
@@ -1105,11 +1118,7 @@ EOF
       fi
     fi
 
-    # check if we need to update grub
-    if [ "${GRUB}" = YES ]
-    then
-      __update_grub
-    fi
+    __check_boot_updates
 
     echo "Renamed successfully"
     ;;
