@@ -1,7 +1,6 @@
 #!/bin/sh -e
-
 # Copyright (c) 2015 Kris Moore (kmoore)
-# Copyright (c) 2012-2013 Slawomir Wojciech Wojtczak (vermaden)
+# Copyright (c) 2012-2015 Slawomir Wojciech Wojtczak (vermaden)
 # Copyright (c) 2012-2013 Bryan Drewery (bdrewery)
 # Copyright (c) 2012-2013 Mike Clarke (rawthey)
 # Copyright (c) 2013      Dancho Penev (dpslavov)
@@ -38,7 +37,7 @@ fi
 
 if [ "${1}" = "--version" -o "${1}" = "version" ]
 then
-  echo "beadm 1.5.2 2015/03/19"
+  echo "beadm 1.2.6 2015/09/17"
   exit 0
 fi
 
@@ -178,6 +177,25 @@ __be_clone() { # 1=DATASET
 
 # create new boot environment
 __be_new() { # 1=SOURCE 2=TARGET
+  local NAME_NEW=$( basename "${2}" )
+  local NAME_SANITY=$( echo "${NAME_NEW}" | tr -c -d 'a-zA-Z0-9-_.,' )
+  if [ "${NAME_NEW}" != "${NAME_SANITY}" ]
+  then
+    echo "ERROR: Can not create boot environment with '${NAME_NEW}' name"
+    echo
+    echo "Allowed characters for boot environment are:"
+    echo "  alphanumeric characters: 'a-z' 'A-Z' '0-9'"
+    echo "  hypen: '-'"
+    echo "  underscore: '_'"
+    echo "  dot: '.'"
+    echo "  comma: ','"
+    echo
+    echo "Name '${NAME_SANITY}' which uses only allowed characters can be used"
+    echo
+    exit 1
+  fi
+  unset NAME_NEW
+  unset NAME_SANITY
   local SOURCE=$( echo ${1} | cut -d '@' -f 1 )
   local NICKNAME="$BENICK"
 
@@ -191,6 +209,24 @@ __be_new() { # 1=SOURCE 2=TARGET
     fi
   fi
 
+  local ENTROPY=0
+  # secure current /boot/entropy file
+  if [ -f /boot/entropy ]
+  then
+    if ! cp -p /boot/entropy /boot/entropy.OLD 1> /dev/null 2> /dev/null
+    then
+      echo "ERROR: Can not copy current '/boot/entropy' file"
+      exit 1
+    fi
+    ENTROPY=1
+  fi
+  # create new /boot/entropy file that would be used in new boot environment
+  if ! dd if=/dev/random of=/boot/entropy bs=4096 count=1 1> /dev/null 2> /dev/null
+  then
+    echo "ERROR: Can not generate new '/boot/entropy' file"
+    exit 1
+  fi
+  # create snapshot that will be used as a base for new boot environment
   if __be_snapshot ${1}
   then
     # create boot environment from snapshot
@@ -201,6 +237,13 @@ __be_new() { # 1=SOURCE 2=TARGET
           if ! zfs list -H -o name ${FS}@${SNAPSHOT} 1> /dev/null 2> /dev/null
           then
             echo "ERROR: Child snapshot '${FS}@${SNAPSHOT}' does not exist"
+            if [ ${ENTROPY} -ne 0 ]
+            then
+              if ! mv /boot/entropy.OLD /boot/entropy 1> /dev/null 2> /dev/null
+              then
+                echo "WARNING: Can not bring back original '/boot/entropy' file"
+              fi
+            fi
             exit 1
           fi
         done
@@ -209,6 +252,13 @@ __be_new() { # 1=SOURCE 2=TARGET
     if zfs list -H -o name ${1}@${2##*/} 1> /dev/null 2> /dev/null
     then
       echo "ERROR: Snapshot '${1}@${2##*/}' already exists"
+      if [ ${ENTROPY} -ne 0 ]
+      then
+        if ! mv /boot/entropy.OLD /boot/entropy 1> /dev/null 2> /dev/null
+        then
+          echo "WARNING: Can not bring back original '/boot/entropy' file"
+        fi
+      fi
       exit 1
     fi
     # snapshot format
@@ -216,10 +266,25 @@ __be_new() { # 1=SOURCE 2=TARGET
     if ! zfs snapshot -r ${1}@${FMT} 1> /dev/null 2> /dev/null
     then
       echo "ERROR: Cannot create snapshot '${1}@${FMT}'"
+      if [ ${ENTROPY} -ne 0 ]
+      then
+        if ! mv /boot/entropy.OLD /boot/entropy 1> /dev/null 2> /dev/null
+        then
+          echo "WARNING: Can not bring back original '/boot/entropy' file"
+        fi
+      fi
       exit 1
     fi
   fi
-
+  # bring back secured /boot/entropy.OLD file
+  if [ -f /boot/entropy.OLD ]
+  then
+    if ! mv /boot/entropy.OLD /boot/entropy 1> /dev/null 2> /dev/null
+    then
+      echo "WARNING: Can not bring back original '/boot/entropy' file"
+    fi
+  fi
+  unset ENTROPY
   # clone properties of source boot environment
   zfs list -H -o name -r ${SOURCE} \
     | grep -v '@' \
@@ -380,7 +445,7 @@ case ${1} in
             MOUNTS[$1] = $3
         close(CMD_MOUNT)
         FS = "\\t"
-        CMD_ZFS_LIST = "zfs list -H -t all -s creation -o name,used,usedds,usedbysnapshots,usedrefreserv,refer,creation,origin -r "
+        CMD_ZFS_LIST = "zfs list -H -t filesystem,snapshot,volume -s creation -o name,used,usedds,usedbysnapshots,usedrefreserv,refer,creation,origin -r "
         while(CMD_ZFS_LIST BENAME_BEGINS_WITH | getline) {
           if($1 != BENAME_BEGINS_WITH) {
             FSNAME = $1
@@ -752,7 +817,7 @@ EOF
       fi
     fi
     # execute ZFS LIST only once
-    ZFS_LIST=$( zfs list -H -o name -r ${POOL}/${BEDS} )
+    ZFS_LIST=$( zfs list -t filesystem -H -o name -r ${POOL}/${BEDS} )
     # disable automatic mount on all inactive boot environments
     echo "${ZFS_LIST}" \
       | grep -v "^${POOL}/${BEDS}$" \
@@ -883,7 +948,7 @@ EOF
           if __be_clone ${POOL}/${BEDS}/${DESTROY}
           then
             # promote clones dependent on snapshots used by destroyed boot environment
-            zfs list -H -t all -o name,origin -r ${POOL} \
+            zfs list -H -t filesystem,snapshot,volume -o name,origin -r ${POOL} \
               | while read NAME ORIGIN
                 do
                   if echo "${ORIGIN}" | grep -q -E "${POOL}/${BEDS}/${DESTROY}(/.*@|@)" 2> /dev/null
@@ -892,7 +957,7 @@ EOF
                   fi
                 done
             # get origins used by destroyed boot environment
-            ORIGIN_SNAPSHOTS=$( zfs list -H -t all -o origin -r ${POOL}/${BEDS}/${DESTROY} | grep -v '^-$' | awk -F "@" '{print $2}' | sort -u )
+            ORIGIN_SNAPSHOTS=$( zfs list -H -t filesystem,snapshot,volume -o origin -r ${POOL}/${BEDS}/${DESTROY} | grep -v '^-$' | awk -F "@" '{print $2}' | sort -u )
           fi
           # check if boot environment was created from existing snapshot
           ORIGIN=$( zfs list -H -o origin ${POOL}/${BEDS}/${DESTROY} )
@@ -926,7 +991,7 @@ EOF
           if __be_clone ${POOL}/${BEDS}/${DESTROY}
           then
             # promote datasets dependent on origins used by destroyed boot environment
-            ALL_ORIGINS=$( zfs list -H -t all -o name,origin -r ${POOL} )
+            ALL_ORIGINS=$( zfs list -H -t filesystem,snapshot,volume -o name,origin -r ${POOL} )
             echo "${ORIGIN_SNAPSHOTS}" \
               | while read S
                 do
