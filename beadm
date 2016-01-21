@@ -163,7 +163,7 @@ __convert_be_nickname() { # 1=NICKNAME
     return 1
   fi
 
-  NICKDATASET=`zfs get -d 2 -H -o value,name beadm:nickname ${POOL}/${BEDS} | grep -v '@' | grep -w "^${1}" | awk '{print $2}' | head -n 1 | sed "s|${POOL}/${BEDS}/||g"`
+  NICKDATASET=`zfs get -d 2 -H -o value,name beadm:nickname ${POOL}/${BEDS} | grep -v '@' | tr '\t' ' ' | grep "^${1} " | sed "s|^${1} ||g" | awk 'NF<=1' | sed "s|${POOL}/${BEDS}/||g"`
   if zfs get -d 2 -H -o value beadm:nickname ${POOL}/${BEDS} | grep -q -w "^$1\$"
   then
     return 0
