@@ -657,6 +657,12 @@ case ${1} in
        __usage
     fi
 
+    if echo "$NEWBE" | grep -q " "
+    then
+       echo "ERROR: White-space in dataset name not permitted"
+       exit 1
+    fi
+
     # Do some sanity checking
     if [ ${OPTION_r} -eq 1 ]
     then
@@ -1091,6 +1097,12 @@ EOF
     if [ "${RENAMENICK}" = "NO" ]
     then
       # Renaming a dataset
+
+      if echo "${nName}" | grep -q " "
+      then
+         echo "ERROR: White-space in dataset name not permitted"
+         exit 1
+      fi
       __be_exist ${POOL}/${BEDS}/${oName}
       if [ "${BOOTFS}" = "${POOL}/${BEDS}/${oName}" ]
       then
