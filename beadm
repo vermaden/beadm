@@ -59,8 +59,6 @@ __check_boot_updates() {
   # check if we need to update grub
   __update_grub
 
-  # Check if we need to update EFI loader.rc
-  __update_efi_loader
 }
 
 # check if system has a grub.cfg file and update it
@@ -73,23 +71,6 @@ __update_grub() {
     else
       echo "WARNING: Failed to update GRUB configuration"
     fi
-  fi
-}
-
-# check if system has a EFI loader.rc file and update it
-__update_efi_loader() {
-  if [ -e /boot/efi/boot/loader.rc ]
-  then
-    BOOTFS=$( zpool list -H -o bootfs ${POOL} )
-    touch /tmp/.be.loads.$$
-    cat /boot/efi/boot/loader.rc | grep 'load /' > /tmp/.be.loads.$$
-    cat > /boot/efi/boot/loader.rc << EOF
-unload
-set currdev=zfs:${BOOTFS}:
-EOF
-    cat /tmp/.be.loads.$$ >> /boot/efi/boot/loader.rc
-    rm /tmp/.be.loads.$$
-    echo "autoboot" >> /boot/efi/boot/loader.rc
   fi
 }
 
