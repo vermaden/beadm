@@ -1,5 +1,5 @@
 #!/bin/sh -e
-# Copyright (c) 2015 Kris Moore (kmoore)
+# Copyright (c) 2016 Kris Moore (kmoore)
 # Copyright (c) 2012-2015 Slawomir Wojciech Wojtczak (vermaden)
 # Copyright (c) 2012-2013 Bryan Drewery (bdrewery)
 # Copyright (c) 2012-2013 Mike Clarke (rawthey)
@@ -47,6 +47,8 @@ __usage() {
   echo "  ${NAME} activate [-n] <beName>"
   echo "  ${NAME} create [-r] [-e nonActiveBe | -e beName@snapshot] <beName>/<beName@snapshot> [nickname]"
   echo "  ${NAME} destroy [-F] [-n] <beName | beName@snapshot | nickname>"
+  echo "  ${NAME} export <beName> <file>"
+  echo "  ${NAME} import <beName> <file>"
   echo "  ${NAME} list [-a] [-s] [-D] [-H]"
   echo "  ${NAME} rename [-n] <origBeName> <newBeName>"
   echo "  ${NAME} mount [-n] <beName> [mountpoint]"
@@ -1031,6 +1033,53 @@ EOF
         echo "Boot environment '${DESTROY}' has not been destroyed"
         ;;
     esac
+    ;;
+
+  (export) # ------------------------------------------------------------------
+    if [ ${#} -ne 3 -a ${#} -ne 4 ]
+    then
+      __usage
+    fi
+
+    GOTNICK="NO"
+    if [ ${#} -ne 3 ]
+    then
+      __usage
+    fi
+
+    beName="$2"
+    fileOut="$3"
+
+    # Check if this is a nickname
+    if __convert_be_nickname "${4}"
+    then
+      beName="${NICKDATASET}"
+    fi
+
+    # Export the BE to a file
+    TMPMNT=$( mktemp -d -t BE-${MOUNTBE} )
+
+    if ! mount -t zfs ${POOL}/${BEDS}/${beName} ${TMPMNT}
+    then
+      echo "ERROR: Cannot mount '${beName}' at '${TMPMNT}' mountpoint"
+      exit 1
+    fi
+
+    # Why is this not a ZFS dump you ask? Good question, this may change down
+    # the road. Right now more focused on being able to import regardless of the
+    # version of ZFS being used
+    echo "Exporting BE: ${beName} - This may take a while..."
+    if ! tar cvJf ${fileOut} -C ${TMPMNT} . 2>/dev/null
+    then
+      echo "ERROR: Failed exporting BE to file: ${fileOut}"
+      umount -f ${TMPMNT}
+      rmdir ${TMPMNT}
+      exit 1
+    fi
+
+    umount -f ${TMPMNT}
+    rmdir ${TMPMNT}
+    echo "Exported successfully to: ${fileOut}"
     ;;
 
   (rename) # ------------------------------------------------------------------
