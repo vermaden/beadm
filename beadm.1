@@ -39,6 +39,14 @@ destroy
 .Op Fl n
 .Ao Ar beName | beName@snapshot Ac
 .Nm
+export
+.Ao Ar beName Ac
+.Ao Ar newFile Ac
+.Nm
+import
+.Ao Ar file Ac
+.Ao Ar newBeName Ac
+.Nm
 list
 .Op Fl a
 .Op Fl D
@@ -113,6 +121,27 @@ will automatically unmount without confirmation.
 If
 .Fl n
 used, resolve the BE nickname
+.Pp
+.It Ic export
+.Ao Ar beName Ac Ao Ar fileName Ac
+.Pp
+Exports the
+.Ar beName
+to the given
+.Ar fileName
+.Pp
+.It Ic import
+.Ao Ar fileName Ac Ao Ar beName Ac
+.Pp
+Imports the
+.Ar fileName
+to the given
+.Ar beName
+.Pp
+.It Ic umount
+.Op Fl f
+.Op Fl n
+.Ao Ar beName Ac
 .Pp
 .It Ic list
 .Op Fl a
@@ -240,3 +269,8 @@ Wrote fast implementation of
 .Nm Ar list .
 .Pp
 Contributed a lot of fixes and usability changes.
+.It
+Kris Moore (kmoore134)
+.Ar kris@pcbsd.org
+.Pp
+Added support for nicknames, and exporting / importing BEs

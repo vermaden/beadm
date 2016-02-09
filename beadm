@@ -48,7 +48,7 @@ __usage() {
   echo "  ${NAME} create [-r] [-e nonActiveBe | -e beName@snapshot] <beName>/<beName@snapshot> [nickname]"
   echo "  ${NAME} destroy [-F] [-n] <beName | beName@snapshot | nickname>"
   echo "  ${NAME} export <beName> <file>"
-  echo "  ${NAME} import <beName> <file>"
+  echo "  ${NAME} import <file> <beName>"
   echo "  ${NAME} list [-a] [-s] [-D] [-H]"
   echo "  ${NAME} rename [-n] <origBeName> <newBeName>"
   echo "  ${NAME} mount [-n] <beName> [mountpoint]"
@@ -1036,12 +1036,6 @@ EOF
     ;;
 
   (export) # ------------------------------------------------------------------
-    if [ ${#} -ne 3 -a ${#} -ne 4 ]
-    then
-      __usage
-    fi
-
-    GOTNICK="NO"
     if [ ${#} -ne 3 ]
     then
       __usage
@@ -1056,30 +1050,47 @@ EOF
       beName="${NICKDATASET}"
     fi
 
-    # Export the BE to a file
-    TMPMNT=$( mktemp -d -t BE-${MOUNTBE} )
-
-    if ! mount -t zfs ${POOL}/${BEDS}/${beName} ${TMPMNT}
-    then
-      echo "ERROR: Cannot mount '${beName}' at '${TMPMNT}' mountpoint"
-      exit 1
-    fi
-
-    # Why is this not a ZFS dump you ask? Good question, this may change down
-    # the road. Right now more focused on being able to import regardless of the
-    # version of ZFS being used
-    echo "Exporting BE: ${beName} - This may take a while..."
-    if ! tar cvJf ${fileOut} -C ${TMPMNT} . 2>/dev/null
+    # Save the dataset as a ZFS send dump
+    echo "Exporting BE: ${beName} -> ${fileOut}"
+    if ! zfs send ${POOL}/${BEDS}/${beName} > ${fileOut}
     then
       echo "ERROR: Failed exporting BE to file: ${fileOut}"
-      umount -f ${TMPMNT}
-      rmdir ${TMPMNT}
       exit 1
     fi
 
-    umount -f ${TMPMNT}
-    rmdir ${TMPMNT}
     echo "Exported successfully to: ${fileOut}"
+    ;;
+
+  (import) # ------------------------------------------------------------------
+    if [ ${#} -ne 3 ]
+    then
+      __usage
+    fi
+
+    fileIn="$2"
+    beName="$3"
+
+    if zfs list ${POOL}/${BEDS}/${beName} >/dev/null 2>/dev/null
+    then
+      echo "ERROR: BE ${beName} already exists!"
+      exit 1
+    fi
+
+    if [ ! -e "${fileIn}" ]
+    then
+      echo "ERROR: File ${fileIn} does not exist!"
+      exit 1
+    fi
+
+    # Import the dataset from a ZFS send dump
+    echo "Importing BE: ${fileIn} -> ${beName}"
+    if ! cat $fileIn | zfs recv -u ${POOL}/${BEDS}/${beName}
+    then
+      echo "ERROR: Failed importing BE from file: ${fileOut}"
+      exit 1
+    fi
+
+    echo "Imported successfully: ${beName}"
     ;;
 
   (rename) # ------------------------------------------------------------------
