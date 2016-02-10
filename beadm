@@ -37,7 +37,7 @@ fi
 
 if [ "${1}" = "--version" -o "${1}" = "version" ]
 then
-  echo "beadm 1.5.3 2015/09/24"
+  echo "beadm 1.2.6 2015/09/17"
   exit 0
 fi
 
