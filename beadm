@@ -1,5 +1,5 @@
 #!/bin/sh -e
-# Copyright (c) 2015 Kris Moore (kmoore)
+# Copyright (c) 2016 Kris Moore (kmoore)
 # Copyright (c) 2012-2015 Slawomir Wojciech Wojtczak (vermaden)
 # Copyright (c) 2012-2013 Bryan Drewery (bdrewery)
 # Copyright (c) 2012-2013 Mike Clarke (rawthey)
@@ -47,6 +47,8 @@ __usage() {
   echo "  ${NAME} activate [-n] <beName>"
   echo "  ${NAME} create [-r] [-e nonActiveBe | -e beName@snapshot] <beName>/<beName@snapshot> [nickname]"
   echo "  ${NAME} destroy [-F] [-n] <beName | beName@snapshot | nickname>"
+  echo "  ${NAME} export <beName> <file>"
+  echo "  ${NAME} import <file> <beName>"
   echo "  ${NAME} list [-a] [-s] [-D] [-H]"
   echo "  ${NAME} rename [-n] <origBeName> <newBeName>"
   echo "  ${NAME} mount [-n] <beName> [mountpoint]"
@@ -1031,6 +1033,64 @@ EOF
         echo "Boot environment '${DESTROY}' has not been destroyed"
         ;;
     esac
+    ;;
+
+  (export) # ------------------------------------------------------------------
+    if [ ${#} -ne 3 ]
+    then
+      __usage
+    fi
+
+    beName="$2"
+    fileOut="$3"
+
+    # Check if this is a nickname
+    if __convert_be_nickname "${4}"
+    then
+      beName="${NICKDATASET}"
+    fi
+
+    # Save the dataset as a ZFS send dump
+    echo "Exporting BE: ${beName} -> ${fileOut}"
+    if ! zfs send ${POOL}/${BEDS}/${beName} > ${fileOut}
+    then
+      echo "ERROR: Failed exporting BE to file: ${fileOut}"
+      exit 1
+    fi
+
+    echo "Exported successfully to: ${fileOut}"
+    ;;
+
+  (import) # ------------------------------------------------------------------
+    if [ ${#} -ne 3 ]
+    then
+      __usage
+    fi
+
+    fileIn="$2"
+    beName="$3"
+
+    if zfs list ${POOL}/${BEDS}/${beName} >/dev/null 2>/dev/null
+    then
+      echo "ERROR: BE ${beName} already exists!"
+      exit 1
+    fi
+
+    if [ ! -e "${fileIn}" ]
+    then
+      echo "ERROR: File ${fileIn} does not exist!"
+      exit 1
+    fi
+
+    # Import the dataset from a ZFS send dump
+    echo "Importing BE: ${fileIn} -> ${beName}"
+    if ! cat $fileIn | zfs recv -u ${POOL}/${BEDS}/${beName}
+    then
+      echo "ERROR: Failed importing BE from file: ${fileOut}"
+      exit 1
+    fi
+
+    echo "Imported successfully: ${beName}"
     ;;
 
   (rename) # ------------------------------------------------------------------
