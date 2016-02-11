@@ -24,18 +24,28 @@
 .Sh SYNOPSIS
 .Nm
 activate
+.Op Fl n
 .Ao Ar beName Ac
 .Nm
 create
-.Op Fl e Ar nonActiveBe | Fl e Ar beName@snapshot
+.Op Fl r Fl e Ar nonActiveBe | Fl e Ar beName@snapshot
 .Ao Ar beName Ac
 .Nm
 create
-.Ao Ar beName@snapshot Ac
+.Ao Fl r Ar beName@snapshot Ac
 .Nm
 destroy
 .Op Fl F
+.Op Fl n
 .Ao Ar beName | beName@snapshot Ac
+.Nm
+export
+.Ao Ar beName Ac
+.Ao Ar newFile Ac
+.Nm
+import
+.Ao Ar file Ac
+.Ao Ar newBeName Ac
 .Nm
 list
 .Op Fl a
@@ -45,14 +55,17 @@ list
 .Nm
 mount
 .Ao Ar beName Ac
+.Op Fl n
 .Op mountpoint
 .Nm
 rename
+.Op Fl n
 .Ao Ar origBeName Ac
 .Ao Ar newBeName Ac
 .Nm
 { umount | unmount }
 .Op Fl f
+.Op Fl n
 .Ao Ar beName Ac
 .Sh DESCRIPTION
 The
@@ -80,15 +93,21 @@ Creates a new boot environment named
 .Ar beName .
 If the -e param is specified, the new environment will be cloned from the given
 .Ar nonActiveBe | Ar beName@snapshot .
+If the -r param is specified, the current BE nickname will be cloned
+and the old BE nickname will be replaced with the specified nickname.
 .Pp
 .It Ic create
 .Ao Ar beName@snapshot Ac
 .Pp
 Creates a snapshot of the existing boot environment named
 .Ar beName .
+If the -r param is specified, the current BE nickname will be cloned
+and the old BE nickname will be replaced with the specified nickname.
 .Pp
 .It
-.Ic destroy Op Fl F
+.Ic destroy
+.Op Fl F
+.Op Fl n
 .Ao Ar beName | beName@snapshot Ac
 .Pp
 Destroys the given
@@ -99,6 +118,30 @@ snapshot.
 Specifying
 .Fl F
 will automatically unmount without confirmation.
+If
+.Fl n
+used, resolve the BE nickname
+.Pp
+.It Ic export
+.Ao Ar beName Ac Ao Ar fileName Ac
+.Pp
+Exports the
+.Ar beName
+to the given
+.Ar fileName
+.Pp
+.It Ic import
+.Ao Ar fileName Ac Ao Ar beName Ac
+.Pp
+Imports the
+.Ar fileName
+to the given
+.Ar beName
+.Pp
+.It Ic umount
+.Op Fl f
+.Op Fl n
+.Ao Ar beName Ac
 .Pp
 .It Ic list
 .Op Fl a
@@ -119,10 +162,12 @@ The
 .Fl H
 option is used for scripting. It does not print headers and separate fields by a single tab instead of arbitrary white space.
 If
+If
 .Fl s
 is used, display all snapshots as well.
 .Pp
 .It Ic mount
+.Op Fl n
 .Ao Ar beName Ac
 .Op mountpoint
 .Pp
@@ -130,22 +175,34 @@ Temporarily mount the boot environment.
 Mount at the specified
 .Ar mountpoint
 if provided.
+If
+.Fl n
+used, resolve the BE nickname
 .Pp
-.It Ic rename Ao Ar origBeName Ac Ao Ar newBeName Ac
+.It Ic rename
+.Op Fl n
+.Ao Ar origBeName Ac Ao Ar newBeName Ac
 .Pp
 Renames the given nonactive
 .Ar origBeName
 to the given
 .Ar newBeName
+If
+.Fl n
+used, rename the nickname property only
 .Pp
 .It Ic umount
 .Op Fl f
+.Op Fl n
 .Ao Ar beName Ac
 .Pp
 Unmount the given boot environment, if it is mounted.
 Specifying
 .Fl f
 will force the unmount if busy.
+If
+.Fl n
+used, resolve the BE nickname
 .Pp
 .El
 .Sh EXAMPLES
@@ -212,3 +269,8 @@ Wrote fast implementation of
 .Nm Ar list .
 .Pp
 Contributed a lot of fixes and usability changes.
+.It
+Kris Moore (kmoore134)
+.Ar kris@pcbsd.org
+.Pp
+Added support for nicknames, and exporting / importing BEs
