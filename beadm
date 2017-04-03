@@ -180,9 +180,9 @@ EOF
         fi
         if __be_snapshot ${1}
         then
-          eval "zfs clone -o canmount=off ${OPTS} ${FS}@${1##*@} ${DATASET}"
+          eval "zfs clone -o canmount=noauto ${OPTS} ${FS}@${1##*@} ${DATASET}"
         else
-          eval "zfs clone -o canmount=off ${OPTS} ${FS}@${FMT} ${DATASET}"
+          eval "zfs clone -o canmount=noauto ${OPTS} ${FS}@${FMT} ${DATASET}"
         fi
       done
       # check if we need to update grub
