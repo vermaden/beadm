@@ -303,7 +303,7 @@ case ${1} in
         while(CMD_ZFS_LIST BENAME_BEGINS_WITH | getline) {
           if($1 != BENAME_BEGINS_WITH) {
             FSNAME = $1
-            FSNAMES[length(FSNAME) + 1] = FSNAME
+            FSNAMES[length(FSNAMES) + 1] = FSNAME
             USED              = __normalize($2)
             USEDBYDATASET     = __normalize($3)
             USEDBYSNAPSHOTS   = __normalize($4)
