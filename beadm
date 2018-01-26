@@ -387,7 +387,7 @@ case ${1} in
               FSNAME_LENGTH = LF
           }
         }
-        close(CMD_ZFS_LIST)
+        close(CMD_ZFS_LIST BENAME_BEGINS_WITH)
         split(BELIST, BENAMES, " ")
         if(OPTION_a == 1) {
           BE_HEAD = "BE/Dataset/Snapshot"
