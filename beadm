@@ -35,9 +35,9 @@ then
   exit 1
 fi
 
-if [ "${1}" = "--version" -o "${1}" = "version" ]
+if [ "${1}" = "--version" -o "${1}" = "-version" -o "${1}" = "version" ]
 then
-  echo "beadm 1.2.7 2017/01/14"
+  echo "beadm 1.2.8 2018/06/13"
   exit 0
 fi
 
@@ -52,6 +52,7 @@ __usage() {
   echo "  ${NAME} rename <origBeName> <newBeName>"
   echo "  ${NAME} mount <beName> [mountpoint]"
   echo "  ${NAME} { umount | unmount } [-f] <beName>"
+  echo "  ${NAME} version"
   exit 1
 }
 
@@ -128,6 +129,24 @@ __be_new() { # 1=SOURCE 2=TARGET
   unset NAME_NEW
   unset NAME_SANITY
   local SOURCE=$( echo ${1} | cut -d '@' -f 1 )
+  local ENTROPY=0
+  # secure current /boot/entropy file
+  if [ -f /boot/entropy ]
+  then
+    if ! cp -p /boot/entropy /boot/entropy.OLD 1> /dev/null 2> /dev/null
+    then
+      echo "ERROR: Can not copy current '/boot/entropy' file"
+      exit 1
+    fi
+    ENTROPY=1
+  fi
+  # create new /boot/entropy file that would be used in new boot environment
+  if ! dd if=/dev/random of=/boot/entropy bs=4096 count=1 1> /dev/null 2> /dev/null
+  then
+    echo "ERROR: Can not generate new '/boot/entropy' file"
+    exit 1
+  fi
+  # create snapshot that will be used as a base for new boot environment
   if __be_snapshot ${1}
   then
     # create boot environment from snapshot
@@ -138,6 +157,13 @@ __be_new() { # 1=SOURCE 2=TARGET
           if ! zfs list -H -o name ${FS}@${SNAPSHOT} 1> /dev/null 2> /dev/null
           then
             echo "ERROR: Child snapshot '${FS}@${SNAPSHOT}' does not exist"
+            if [ ${ENTROPY} -ne 0 ]
+            then
+              if ! mv /boot/entropy.OLD /boot/entropy 1> /dev/null 2> /dev/null
+              then
+                echo "WARNING: Can not bring back original '/boot/entropy' file"
+              fi
+            fi
             exit 1
           fi
         done
@@ -146,6 +172,13 @@ __be_new() { # 1=SOURCE 2=TARGET
     if zfs list -H -o name ${1}@${2##*/} 1> /dev/null 2> /dev/null
     then
       echo "ERROR: Snapshot '${1}@${2##*/}' already exists"
+      if [ ${ENTROPY} -ne 0 ]
+      then
+        if ! mv /boot/entropy.OLD /boot/entropy 1> /dev/null 2> /dev/null
+        then
+          echo "WARNING: Can not bring back original '/boot/entropy' file"
+        fi
+      fi
       exit 1
     fi
     # snapshot format
@@ -153,9 +186,25 @@ __be_new() { # 1=SOURCE 2=TARGET
     if ! zfs snapshot -r ${1}@${FMT} 1> /dev/null 2> /dev/null
     then
       echo "ERROR: Cannot create snapshot '${1}@${FMT}'"
+      if [ ${ENTROPY} -ne 0 ]
+      then
+        if ! mv /boot/entropy.OLD /boot/entropy 1> /dev/null 2> /dev/null
+        then
+          echo "WARNING: Can not bring back original '/boot/entropy' file"
+        fi
+      fi
       exit 1
     fi
   fi
+  # bring back secured /boot/entropy.OLD file
+  if [ -f /boot/entropy.OLD ]
+  then
+    if ! mv /boot/entropy.OLD /boot/entropy 1> /dev/null 2> /dev/null
+    then
+      echo "WARNING: Can not bring back original '/boot/entropy' file"
+    fi
+  fi
+  unset ENTROPY
   # clone properties of source boot environment
   zfs list -H -o name -r ${SOURCE} \
     | grep -v '@' \
@@ -164,12 +213,7 @@ __be_new() { # 1=SOURCE 2=TARGET
         local OPTS=""
         while read NAME PROPERTY VALUE
         do
-          if [ "${PROPERTY}" = "sharenfs" ]
-          then
-            local OPTS="-o ${PROPERTY}=\"${VALUE}\" ${OPTS}"
-          else
-            local OPTS="-o ${PROPERTY}=${VALUE} ${OPTS}"
-          fi
+          local OPTS="-o ${PROPERTY}=\"${VALUE}\" ${OPTS}"
         done << EOF
 $( zfs get -o name,property,value -s local,received -H all ${FS} | awk '!/[\t ]canmount[\t ]/' )
 EOF
@@ -303,7 +347,7 @@ case ${1} in
         while(CMD_ZFS_LIST BENAME_BEGINS_WITH | getline) {
           if($1 != BENAME_BEGINS_WITH) {
             FSNAME = $1
-            FSNAMES[length(FSNAME) + 1] = FSNAME
+            FSNAMES[length(FSNAMES) + 1] = FSNAME
             USED              = __normalize($2)
             USEDBYDATASET     = __normalize($3)
             USEDBYSNAPSHOTS   = __normalize($4)
@@ -339,7 +383,7 @@ case ${1} in
               FSNAME_LENGTH = LF
           }
         }
-        close(CMD_ZFS_LIST)
+        close(CMD_ZFS_LIST BENAME_BEGINS_WITH)
         split(BELIST, BENAMES, " ")
         if(OPTION_a == 1) {
           BE_HEAD = "BE/Dataset/Snapshot"
@@ -492,6 +536,7 @@ case ${1} in
         fi
       fi
       # do not change root (/) mounted boot environment mountpoint
+      HAVE_ZFSBE=0
       if [ "${ROOTFS}" != "${POOL}/${BEDS}/${2}" ]
       then
         TMPMNT=$( mktemp -d -t BE-${2} )
@@ -518,6 +563,9 @@ EOF
           zfs mount ${POOL}/${BEDS}/${2}
         else
           TMPMNT=${MOUNT}
+        fi
+        if [ -f ${TMPMNT}/etc/rc.d/zfsbe ]; then
+          HAVE_ZFSBE=1
         fi
         if [ -f /boot/zfs/zpool.cache ]
         then
@@ -555,11 +603,16 @@ EOF
           zfs set canmount=noauto ${NAME}
         done
     # enable automatic mount for active boot environment and promote it
+    if [ ${HAVE_ZFSBE} -eq 1 ]; then
+      ZFSBE_CANMOUNT=noauto
+    else
+      ZFSBE_CANMOUNT=on
+    fi
     echo "${ZFS_LIST}" \
       | grep -E "^${POOL}/${BEDS}/${2}(/|$)" \
       | while read NAME
         do
-          zfs set canmount=on ${NAME}
+          zfs set canmount=${ZFSBE_CANMOUNT} ${NAME}
           while __be_clone ${NAME}
           do
             zfs promote ${NAME}
@@ -709,17 +762,12 @@ EOF
       __usage
     fi
     __be_exist ${POOL}/${BEDS}/${2}
-    if [ "${BOOTFS}" = "${POOL}/${BEDS}/${2}" ]
-    then
-      echo "ERROR: Renaming active boot environment is not supported"
-      exit 1
-    fi
     if zfs list -H -o name ${POOL}/${BEDS}/${3} 2> /dev/null
     then
       echo "ERROR: Boot environment '${3}' already exists"
       exit 1
     fi
-    zfs rename ${POOL}/${BEDS}/${2} ${POOL}/${BEDS}/${3}
+    zfs rename -u ${POOL}/${BEDS}/${2} ${POOL}/${BEDS}/${3}
     # check if we need to update grub
     if [ "${GRUB}" = YES ]
     then
