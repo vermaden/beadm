@@ -213,15 +213,17 @@ __be_new() { # 1=SOURCE 2=TARGET
         local OPTS=""
         while read NAME PROPERTY VALUE
         do
-          local OPTS="-o ${PROPERTY}=\"${VALUE}\" ${OPTS}"
+          if [ "${VALUE}" != "" ]
+          then
+            local OPTS="-o ${PROPERTY}=\"${VALUE}\" ${OPTS}"
+          else
+            local OPTS=""
+            break
+          fi
         done << EOF
 $( zfs get -o name,property,value -s local,received -H all ${FS} | awk '!/[\t ]canmount[\t ]/' )
 EOF
         DATASET=$( echo ${FS} | awk '{print $1}' | sed -E s/"^${POOL}\/${BEDS}\/${SOURCE##*/}"/"${POOL}\/${BEDS}\/${2##*/}"/g )
-        if [ "${OPTS}" = "-o = " ]
-        then
-          local OPTS=""
-        fi
         if __be_snapshot ${1}
         then
           eval "zfs clone -o canmount=off ${OPTS} ${FS}@${1##*@} ${DATASET}"
