@@ -15,203 +15,197 @@
 .\"     @(#)beadm.1
 .\" $FreeBSD$
 .\"
-.Dd September 4, 2012
+.Dd July 31, 2018
 .Dt BEADM 1
-.Os FreeBSD
+.Os
 .Sh NAME
 .Nm beadm
-.Nd Utility to manage Boot Environments with ZFS
+.Nd manage boot environments with ZFS
 .Sh SYNOPSIS
 .Nm
-activate
-.Ao Ar beName Ac
+.Cm activate Ar beName
 .Nm
-create
-.Op Fl e Ar nonActiveBe | Fl e Ar beName@snapshot
-.Ao Ar beName Ac
+.Cm create Op Fl e Ar nonActiveBe Ns | Ns Ar beName Ns Cm @ Ns Ar snapshot
+.Ar beName
 .Nm
-create
-.Ao Ar beName@snapshot Ac
+.Cm create
+.Ar beName Ns Cm @ Ns Ar snapshot
 .Nm
-destroy
-.Op Fl F
-.Ao Ar beName | beName@snapshot Ac
+.Cm destroy Op Fl F
+.Ar beName Ns | Ns Ar beName Ns Cm @ Ns Ar snapshot
+.Nm Cm list
+.Op Fl aDHs
 .Nm
-list
-.Op Fl a
-.Op Fl D
-.Op Fl H
-.Op Fl s
+.Cm mount
+.Ar beName
+.Op Ar mountpoint
 .Nm
-mount
-.Ao Ar beName Ac
-.Op mountpoint
+.Cm rename Ar origBeName Ar newBeName
 .Nm
-rename
-.Ao Ar origBeName Ac
-.Ao Ar newBeName Ac
+.Cm umount Op Fl f Ar beName
 .Nm
-{ umount | unmount }
-.Op Fl f
-.Ao Ar beName Ac
-.Nm
-version
+.Cm version
 .Sh DESCRIPTION
 The
 .Nm
-command is used to setup and interact with Boot Environments with ZFS.
+command is used to setup and interact with boot environments with ZFS.
 .Pp
-.Em Boot Environments
-allows the system to be upgraded, while preserving the old system environment in a separate ZFS dataset.
-.Pp
+Boot environments allow the system to be upgraded, while preserving the old
+system environment in a separate ZFS dataset.
 .Sh COMMANDS
 The following commands are supported by
 .Nm :
 .Bl -tag -width indent
-.It Ic activate Ar <beName>
-.Pp
+.It Cm activate Ar beName
 Activate the given
 .Ar beName
 for the next boot.
-.Pp
-.It Ic create
-.Op Fl e Ar nonActiveBe | Fl e Ar beName@snapshot
-.Ao Ar beName Ac
-.Pp
-Creates a new boot environment named
-.Ar beName .
-If the -e param is specified, the new environment will be cloned from the given
-.Ar nonActiveBe | Ar beName@snapshot .
-.Pp
-.It Ic create
-.Ao Ar beName@snapshot Ac
-.Pp
-Creates a snapshot of the existing boot environment named
-.Ar beName .
-.Pp
-.It
-.Ic destroy Op Fl F
-.Ao Ar beName | beName@snapshot Ac
-.Pp
-Destroys the given
+.It Cm create Xo
+.Op Fl e Ar nonActiveBe Ns | Ns Ar beName Ns Cm @ Ns Ar snapshot
 .Ar beName
-boot environment or
-.Ar beName@snapshot
+.Xc
+Create a new boot environment named
+.Ar beName .
+If the
+.Fl e
+option is specified, the new environment will be cloned from the given
+.Ar nonActiveBe
+boot environment
+or
+.Ar beName Ns Cm @ Ns Ar snapshot
+snapshot.
+.It Cm create Ar beName Ns Cm @ Ns Ar snapshot
+Create a snapshot of the existing boot environment named
+.Ar beName .
+.It Xo
+.Cm destroy Op Fl F
+.Ar beName Ns | Ns Ar beName Ns Cm @ Ns Ar snapshot
+.Xc
+Destroy the given
+.Ar beName
+boot environment
+or
+.Ar beName Ns Cm @ Ns Ar snapshot
 snapshot.
 Specifying
 .Fl F
-will automatically unmount without confirmation.
-.Pp
-.It Ic list
-.Op Fl a
-.Op Fl D
-.Op Fl H
-.Op Fl s
-.Pp
-Displays all boot environments.
-The Active field indicates whether the boot environment is active now (N); active on reboot (R); or both (NR).
-.PP
-If
-.Fl a
-is used, display all datasets.
-If
-.Fl D
-is used, display the full space usage for each boot environment, assuming all other boot environments were destroyed.
+will automatically unmount the target without confirmation.
+.It Cm list Op Fl aDHs
+Display all boot environments.
 The
-.Fl H
-option is used for scripting. It does not print headers and separate fields by a single tab instead of arbitrary white space.
-If
-.Fl s
-is used, display all snapshots as well.
+.Qq Active
+field indicates whether the boot environment is active now
+.Pq Qq N ;
+active on reboot
+.Pq Qq R ;
+or both
+.Pq Qq NR .
 .Pp
-.It Ic mount
-.Ao Ar beName Ac
-.Op mountpoint
-.Pp
-Temporarily mount the boot environment.
+The following options are available:
+.Bl -tag -width "-a"
+.It Fl a
+Display all datasets.
+.It Fl D
+Display the full space usage for each boot environment, assuming all other boot
+environments were destroyed.
+.It Fl H
+Does not print headers and separate fields by a single tab instead of arbitrary
+white space.
+Use for scripting.
+.It Fl s
+Display all snapshots.
+.El
+.It Cm mount Ar beName Op Ar mountpoint
+Temporarily mount the
+.Ar beName
+boot environment.
 Mount at the specified
 .Ar mountpoint
 if provided.
-.Pp
-.It Ic rename Ao Ar origBeName Ac Ao Ar newBeName Ac
-.Pp
-Renames the given nonactive
+.It Cm rename Ar origBeName Ar newBeName
+Rename the given nonactive
 .Ar origBeName
-to the given
-.Ar newBeName
-.Pp
-.It Ic umount
-.Op Fl f
-.Ao Ar beName Ac
-.Pp
+boot environment
+to
+.Ar newBeName .
+.It Cm umount Op Fl f Ar beName
 Unmount the given boot environment, if it is mounted.
 Specifying
 .Fl f
 will force the unmount if busy.
-.Pp
-.It Ic version
-List the beadm version and exit.
+This command can be called with either
+.Cm umount
+or
+.Cm unmount .
+.It Cm version
+Print the
+.Nm
+version and exit.
+.El
 .Sh EXAMPLES
-.Bl -bullet
-.It
-Perform a system upgrade in a
-.Xr jail 8
+.Bl -tag -width indent
+.It Perform a system upgrade in a Xr jail 8 :
 .Pp
 Create a new boot environment called
 .Em jailed :
+.Bd -literal -offset indent
+beadm create -e default jailed
+.Ed
 .Pp
-.Dl beadm create -e default jailed
-.Pp
-Set mountpoint for new jail to
+Set a mountpoint for the new jail to
 .Pa /usr/jails/jailed :
+.Bd -literal -offset indent
+beadm mount jailed /usr/jails/jailed
+.Ed
 .Pp
-.Dl beadm mount jailed /usr/jails/jailed
-.Pp
-The currently active boot environment is now replicated into the jailed system and ready for upgrade.
-Startup the jail, login and perform the normal upgrade process.
+The currently active boot environment is now replicated into the jailed system
+and ready for an upgrade.
+Start up the jail, log in and perform the normal upgrade process.
 Once this is done, stop the jail and disable it in
-.Pa /etc/rc.conf.
+.Pa /etc/rc.conf .
+Now activate the boot environment for the next boot:
+.Bd -literal -offset indent
+beadm activate jailed
+.Ed
 .Pp
-Now activate the boot environment for the next boot
-.Pp
-.Dl beadm activate jailed
-.Pp
-Reboot into the new environment
-.Pp
-.Dl reboot
+Reboot into the new environment:
+.Bd -literal -offset indent
+reboot
+.Ed
 .El
-.Sh HOWTO
-A HOWTO guide is posted at the FreeBSD forums:
-.Bl -bullet
-.It
-.Ar http://forums.freebsd.org/showthread.php?t=31662
-.El
-.Pp
 .Sh SEE ALSO
 .Xr jail 8 ,
 .Xr zfs 8 ,
 .Xr zpool 8
+.Pp
+The original
+.Dq Fx ZFS Madness
+how-to guide is available at the
+.Fx
+Forums:
+.Lk https://forums.freebsd.org/showthread.php?t=31662
 .Sh HISTORY
 .Xr beadm 1M
 originally appeared in Solaris.
 .Sh AUTHORS
-.Bl -bullet
+.Bl -tag -width indent
+.It An Slawomir Wojciech Wojtczak (vermaden) Aq Mt vermaden@interia.pl :
+.Bl -dash
 .It
-Slawomir Wojciech Wojtczak (vermaden)
-.Ar vermaden@interia.pl
-.Pp
 Creator and maintainer of
 .Nm .
+.El
+.It An Bryan Drewery (bdrewery) Aq Mt bryan@shatow.net :
+.Bl -dash
 .It
-Bryan Drewery (bdrewery)
-.Ar bryan@shatow.net
-.Pp
 Wrote this manual page and contributed child dataset fixes.
+.El
+.It An Mike Clarke (rawthey) Aq Mt jmc-fbsd@milibyte.co.uk :
+.Bl -dash
 .It
-Mike Clarke (rawthey)
-.Ar jmc-fbsd@milibyte.co.uk
-.Pp
 Wrote fast implementation of
 .Nm Ar list .
-.Pp
+.It
 Contributed a lot of fixes and usability changes.
+.El
+.El
