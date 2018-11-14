@@ -625,6 +625,8 @@ EOF
     then
       __update_grub
     fi
+    # allow reboot -r to change to the new root filesystem
+    kenv vfs.root.mountfrom="zfs:${POOL}/${BEDS}/${2}" 1>/dev/null 2>/dev/null
     echo "Activated successfully"
     ;;
 
