@@ -56,6 +56,18 @@ __usage() {
   exit 1
 }
 
+# check if /boot is a symlink to a bootpool on this system
+BOOTPATH=
+if [ -L '/boot' ] && [ -d '/boot' ]
+then
+    BOOTPOOL=$( readlink '/boot' | awk -F '/' '{print $1}' )
+    BOOTPROP=$( zpool list -H -o bootfs ${BOOTPOOL} )
+    if [ "${BOOTPROP}" = "-" ]
+    then
+        BOOTPATH=/${BOOTPOOL}
+    fi
+fi
+
 # check if system has a grub.cfg file and update it
 __update_grub() {
   if [ -e /boot/grub/grub.cfg ]
@@ -571,7 +583,10 @@ EOF
         fi
         if [ -f /boot/zfs/zpool.cache ]
         then
-          cp /boot/zfs/zpool.cache ${TMPMNT}/boot/zfs/zpool.cache
+            if [ -z "${BOOTPATH}" ]
+            then
+                cp /boot/zfs/zpool.cache ${TMPMNT}/boot/zfs/zpool.cache
+            fi
         else
           rm -f ${TMPMNT}/boot/zfs/zpool.cache
         fi
@@ -579,6 +594,15 @@ EOF
         if [ -f ${TMPMNT}/boot/loader.conf.local ]
         then
           LOADER_CONFIGS="${LOADER_CONFIGS} ${TMPMNT}/boot/loader.conf.local"
+        else
+            if [ -n "${BOOTPATH}" ]
+            then
+                LOADER_CONFIGS=${BOOTPATH}/boot/loader.conf
+                if [ -f ${BOOTPATH}/boot/loader.conf.local ]
+                then
+                    LOADER_CONFIGS="${BOOTPATH}/boot/loader.conf.local"
+                fi
+            fi
         fi
         sed -i '' -E s/"^vfs.root.mountfrom=.*$"/"vfs.root.mountfrom=\"zfs:${POOL}\/${BEDS}\/${2##*/}\""/g ${LOADER_CONFIGS}
         if [ ${MOUNT} -eq 0 ]
