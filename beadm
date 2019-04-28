@@ -600,7 +600,7 @@ EOF
                 LOADER_CONFIGS=${BOOTPATH}/boot/loader.conf
                 if [ -f ${BOOTPATH}/boot/loader.conf.local ]
                 then
-                    LOADER_CONFIGS="${BOOTPATH}/boot/loader.conf.local"
+                    LOADER_CONFIGS="${LOADER_CONFIGS} ${BOOTPATH}/boot/loader.conf.local"
                 fi
             fi
         fi
@@ -796,6 +796,16 @@ EOF
       exit 1
     fi
     zfs rename -u ${POOL}/${BEDS}/${2} ${POOL}/${BEDS}/${3}
+	# check if we need to update loader config
+	if [ "${BOOTFS}" = "${POOL}/${BEDS}/${2}" ]
+	then
+		LOADER_CONFIGS=/boot/loader.conf
+        if [ -f /boot/loader.conf.local ]
+        then
+          LOADER_CONFIGS="${LOADER_CONFIGS} /boot/loader.conf.local"
+        fi
+        sed -i '' -E s/"^vfs.root.mountfrom=.*$"/"vfs.root.mountfrom=\"zfs:${POOL}\/${BEDS}\/${3##*/}\""/g ${LOADER_CONFIGS}
+	fi
     # check if we need to update grub
     if [ "${GRUB}" = YES ]
     then
