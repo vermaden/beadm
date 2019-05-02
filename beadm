@@ -1,6 +1,6 @@
 #!/bin/sh -e
 
-# Copyright (c) 2012-2018 Slawomir Wojciech Wojtczak (vermaden)
+# Copyright (c) 2012-2019 Slawomir Wojciech Wojtczak (vermaden)
 # Copyright (c) 2012-2013 Bryan Drewery (bdrewery)
 # Copyright (c) 2012-2013 Mike Clarke (rawthey)
 # Copyright (c) 2013      Dancho Penev (dpslavov)
@@ -37,7 +37,7 @@ fi
 
 if [ "${1}" = "--version" -o "${1}" = "-version" -o "${1}" = "version" ]
 then
-  echo "beadm 1.2.9 2018/07/08"
+  echo "beadm 1.3.0 2019/05/02"
   exit 0
 fi
 
@@ -796,16 +796,16 @@ EOF
       exit 1
     fi
     zfs rename -u ${POOL}/${BEDS}/${2} ${POOL}/${BEDS}/${3}
-	# check if we need to update loader config
-	if [ "${BOOTFS}" = "${POOL}/${BEDS}/${2}" ]
-	then
-		LOADER_CONFIGS=/boot/loader.conf
+  # check if we need to update loader config
+  if [ "${BOOTFS}" = "${POOL}/${BEDS}/${2}" ]
+  then
+    LOADER_CONFIGS=/boot/loader.conf
         if [ -f /boot/loader.conf.local ]
         then
           LOADER_CONFIGS="${LOADER_CONFIGS} /boot/loader.conf.local"
         fi
         sed -i '' -E s/"^vfs.root.mountfrom=.*$"/"vfs.root.mountfrom=\"zfs:${POOL}\/${BEDS}\/${3##*/}\""/g ${LOADER_CONFIGS}
-	fi
+  fi
     # check if we need to update grub
     if [ "${GRUB}" = YES ]
     then
