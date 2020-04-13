@@ -48,6 +48,8 @@ __usage() {
   echo "  ${NAME} create [-e nonActiveBe | -e beName@snapshot] <beName>"
   echo "  ${NAME} create <beName@snapshot>"
   echo "  ${NAME} destroy [-F] <beName | beName@snapshot>"
+  echo "  ${NAME} export [-v] sourceBe"
+  echo "  ${NAME} import [-v] targetBe"
   echo "  ${NAME} list [-a] [-s] [-D] [-H]"
   echo "  ${NAME} rename <origBeName> <newBeName>"
   echo "  ${NAME} mount <beName> [mountpoint]"
@@ -784,6 +786,51 @@ EOF
     esac
     ;;
 
+  (export) # -----------------------------------------------------------------
+    if [ "${#}" -eq 2 ]
+    then
+      OPTS=
+      ITEM=${2}
+    elif [ "${#}" -eq 3 -a "${2}" = "-v" ]
+    then
+      OPTS=${2}
+      ITEM=${3}
+    else
+      __usage
+    fi
+    __be_exist ${POOL}/${BEDS}/${ITEM}
+    # always take a recent snapshot before export
+    FMT=$( date "+%Y-%m-%d-%H:%M:%S" )
+    if ! zfs snapshot ${POOL}/${BEDS}/${ITEM}@${FMT} 1> /dev/null 2> /dev/null
+    then
+      echo "ERROR: Cannot create '${ITEM}' recursive snapshot"
+      exit 1
+    fi
+    # send a piped/redirected zfs data stream
+    zfs send ${OPTS} ${POOL}/${BEDS}/${ITEM}@${FMT};
+    ;;
+
+  (import) # -----------------------------------------------------------------
+    if [ "${#}" -eq 2 ]
+    then
+      OPTS=
+      ITEM=${2}
+    elif [ "${#}" -eq 3 -a "${2}" = "-v" ]
+    then
+      OPTS=${2}
+      ITEM=${3}
+    else
+      __usage
+    fi
+    if zfs list -H -o name ${POOL}/${BEDS}/${ITEM} 1> /dev/null 2> /dev/null
+    then
+      echo "ERROR: Boot environment '${ITEM}' already exists"
+      exit 1
+    fi
+    # receive a piped/redirected zfs data stream
+    zfs recv ${OPTS} ${POOL}/${BEDS}/${ITEM};
+    ;;
+
   (rename) # ------------------------------------------------------------------
     if [ ${#} -ne 3 ]
     then
@@ -796,16 +843,16 @@ EOF
       exit 1
     fi
     zfs rename -u ${POOL}/${BEDS}/${2} ${POOL}/${BEDS}/${3}
-  # check if we need to update loader config
-  if [ "${BOOTFS}" = "${POOL}/${BEDS}/${2}" ]
-  then
-    LOADER_CONFIGS=/boot/loader.conf
-        if [ -f /boot/loader.conf.local ]
-        then
-          LOADER_CONFIGS="${LOADER_CONFIGS} /boot/loader.conf.local"
-        fi
-        sed -i '' -E s/"^vfs.root.mountfrom=.*$"/"vfs.root.mountfrom=\"zfs:${POOL}\/${BEDS}\/${3##*/}\""/g ${LOADER_CONFIGS}
-  fi
+    # check if we need to update loader config
+    if [ "${BOOTFS}" = "${POOL}/${BEDS}/${2}" ]
+    then
+      LOADER_CONFIGS=/boot/loader.conf
+      if [ -f /boot/loader.conf.local ]
+      then
+        LOADER_CONFIGS="${LOADER_CONFIGS} /boot/loader.conf.local"
+      fi
+      sed -i '' -E s/"^vfs.root.mountfrom=.*$"/"vfs.root.mountfrom=\"zfs:${POOL}\/${BEDS}\/${3##*/}\""/g ${LOADER_CONFIGS}
+    fi
     # check if we need to update grub
     if [ "${GRUB}" = YES ]
     then
