@@ -801,7 +801,7 @@ EOF
     __be_exist ${POOL}/${BEDS}/${ITEM}
     # always take a recent snapshot before export
     FMT=$( date "+%Y-%m-%d-%H:%M:%S" )
-    if ! zfs snapshot ${POOL}/${BEDS}/${ITEM}@${FMT} 1> /dev/null 2> /dev/null
+    if ! zfs snapshot -r ${POOL}/${BEDS}/${ITEM}@${FMT} 1> /dev/null 2> /dev/null
     then
       echo "ERROR: Cannot create '${ITEM}' recursive snapshot"
       exit 1
