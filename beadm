@@ -30,18 +30,32 @@ unset LC_ALL
 unset LANG
 PATH=${PATH}:/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin:/usr/local/sbin
 
+# check FreeBSD version
 if [ $( uname -r | cut -d '-' -f1 | cut -d '.' -f1 ) -lt 8 ]
 then
   echo "ERROR: beadm works on FreeBSD 8.0 or later"
   exit 1
 fi
 
-if [ "${1}" = "--version" -o "${1}" = "-version" -o "${1}" = "version" ]
+# display version
+if [ "${1}" = "--version" -o \
+     "${1}" =  "-version" -o \
+     "${1}" =   "version" ]
 then
-  echo "beadm 1.3.1 2020/07/22"
+  echo "                                                        "
+  echo "      ___                     ___          __ ____ __   "
+  echo "     /  /                    /  /         / //    \\\ \ "
+  echo "    /  /   ____   ____   ___/  /___ ___  / //  /  / \ \ "
+  echo "   /    \ /  _ \ /    \ /     //   \   \/ / \     \ / / "
+  echo "  /  /  //  ___//  /  //  /  //  /  /  /\ \ /  /  // /  "
+  echo "  \____/ \____/ \_____\\\____//__/__/__/  \_\\\____//_/ "
+  echo
+  echo "beadm 1.3.2 2020/08/02"
+  echo
   exit 0
 fi
 
+# display usage information
 __usage() {
   local NAME=${0##*/}
   echo "usage:"
@@ -282,7 +296,7 @@ then
   . /usr/local/etc/beadm.conf
 fi
 
-# update GRUB bootloader instead of FreeBSD's loader(8)
+# update GRUB bootloader instead of FreeBSD loader(8)
 : ${GRUB="NO"}
 
 # use other prefix then the 'pool/ROOT/bename' default
