@@ -33,6 +33,14 @@
 .Nm
 .Cm destroy Op Fl F
 .Ar beName Ns | Ns Ar beName Ns Cm @ Ns Ar snapshot
+.Nm
+.Cm export
+.Op Fl v
+.Ar beName
+.Nm
+.Cm import
+.Op Fl v
+.Ar beName
 .Nm Cm list
 .Op Fl aDHs
 .Nm
@@ -90,6 +98,26 @@ snapshot.
 Specifying
 .Fl F
 will automatically unmount the target without confirmation.
+.It Cm export Ar beName
+Export
+.Ar beName
+to the
+.Xr stdout 4 .
+Use pipe or redirect the output to a file.
+.Bl -tag -width "-v"
+.It Fl v
+Display verbose output on the export operation.
+.El
+.It Cm import Ar beName
+Import
+.Ar beName
+from
+.Xr stdin 4
+input.
+.Bl -tag -width "-v"
+.It Fl v
+Display verbose output on the export operation.
+.El
 .It Cm list Op Fl aDHs
 Display all boot environments.
 The
