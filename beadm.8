@@ -15,7 +15,7 @@
 .\"     @(#)beadm.8
 .\" $FreeBSD$
 .\"
-.Dd December 1, 2020
+.Dd May 6, 2022
 .Dt BEADM 8
 .Os
 .Sh NAME
@@ -51,6 +51,10 @@
 .Cm rename Ar origBeName Ar newBeName
 .Nm
 .Cm umount Op Fl f Ar beName
+.Nm
+.Cm chroot Ar beName
+.Nm
+.Cm reroot Ar beName
 .Nm
 .Cm version
 .Sh DESCRIPTION
@@ -165,6 +169,14 @@ This command can be called with either
 .Cm umount
 or
 .Cm unmount .
+.It Cm chroot
+Enter to selected boot environment with the
+.Xr chroot 8
+command.
+.It Cm reroot
+Use 'reroot' feature from the
+.Xr reboot 8 -r
+command.
 .It Cm version
 Print the
 .Nm
