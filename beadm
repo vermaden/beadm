@@ -244,13 +244,20 @@ __be_new() { # 1=SOURCE 2=TARGET
         local OPTS=""
         while read NAME PROPERTY VALUE
         do
-          if [ "${VALUE}" != "" ]
-          then
-            local OPTS="-o ${PROPERTY}=\"${VALUE}\" ${OPTS}"
-          else
-            local OPTS=""
-            break
-          fi
+          case $PROPERTY in
+			  snapshot_count|filesystem_count)
+				  # Read only property, skip
+				  ;;
+			  *)
+				if [ "${VALUE}" != "" ]
+				then
+				  local OPTS="-o ${PROPERTY}=\"${VALUE}\" ${OPTS}"
+				else
+				  local OPTS=""
+				  break
+				fi
+				;;
+		  esac
         done << EOF
 $( zfs get -o name,property,value -s local,received -H all ${FS} | awk '!/[\t ]canmount[\t ]/' )
 EOF
